@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App.jsx'
 import AdminPanel from './AdminPanel.jsx'
+import ProfilePage from './ProfilePage.jsx'
+import BotPage from './BotPage.jsx'
+import InternBotPage from './InternBotPage.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -11,6 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Routes>
                 <Route path="/" element={<App />} />
                 <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/bot" element={<BotPage />} />
+                <Route path="/intern-bot" element={<InternBotPage />} />
             </Routes>
         </BrowserRouter>
     </React.StrictMode>,

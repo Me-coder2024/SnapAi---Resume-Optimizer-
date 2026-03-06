@@ -1,0 +1,27 @@
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 12 modules transformed.
+[31m✗[39m Build failed in 276ms
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 1 error:
+C:/Users/mecod/Desktop/AI AGENCY/src/App.jsx:50:59: ERROR: Syntax error "`"[31m
+file: [36mC:/Users/mecod/Desktop/AI AGENCY/src/App.jsx:50:59[31m
+[33m
+[33mSyntax error "`"[33m
+48 |              if (!response.ok) {
+49 |                  const errData = await response.json().catch(() => ({}));
+50 |                  throw new Error(errData.error?.message || \`HTTP ${response.status}\`);
+   |                                                             ^
+51 |              }
+52 |  
+[31m
+    at failureErrorWithLog (C:\Users\mecod\Desktop\AI AGENCY\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\mecod\Desktop\AI AGENCY\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> (C:\Users\mecod\Desktop\AI AGENCY\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (C:\Users\mecod\Desktop\AI AGENCY\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (C:\Users\mecod\Desktop\AI AGENCY\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:518:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m

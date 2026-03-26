@@ -127,6 +127,7 @@ function AdminPanel() {
     const [tools, setTools] = useState([])
     const [requests, setRequests] = useState([])
     const [waitlist, setWaitlist] = useState([])
+    const [organizations, setOrganizations] = useState([])
     const [waitlistActive, setWaitlistActive] = useState(false)
     const [loading, setLoading] = useState(true)
 
@@ -144,10 +145,11 @@ function AdminPanel() {
         if (!isAuthenticated) return
         const loadAll = async () => {
             setLoading(true)
-            const [{ data: t }, { data: r }, { data: w }] = await Promise.all([
+            const [{ data: t }, { data: r }, { data: w }, { data: o }] = await Promise.all([
                 supabase.from('tools').select('*').order('created_at'),
                 supabase.from('requests').select('*').order('submitted_at', { ascending: false }),
                 supabase.from('waitlist').select('*').order('joined_at', { ascending: false }),
+                supabase.from('organizations').select('*').order('created_at', { ascending: false }),
             ])
             // If no tools yet in DB, seed with defaults
             if (t !== null && t.length === 0) {
@@ -176,6 +178,7 @@ function AdminPanel() {
                 category: row.category, email: row.email, submittedAt: row.submitted_at
             })))
             setWaitlist(w || [])
+            setOrganizations(o || [])
 
             // Load waitlist_active setting
             const { data: settingsData } = await supabase
@@ -195,7 +198,19 @@ function AdminPanel() {
             })
             .subscribe()
 
-        return () => supabase.removeChannel(channel)
+        // Real-time: organization changes
+        const orgChannel = supabase
+            .channel('admin-organizations')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'organizations' }, async () => {
+                const { data } = await supabase.from('organizations').select('*').order('created_at', { ascending: false })
+                if (data) setOrganizations(data)
+            })
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+            supabase.removeChannel(orgChannel)
+        }
     }, [isAuthenticated])
 
     // Reset form
@@ -322,6 +337,26 @@ function AdminPanel() {
         URL.revokeObjectURL(url)
     }
 
+    // Approve organization
+    const handleApproveOrg = async (id) => {
+        await supabase.from('organizations').update({ status: 'approved' }).eq('id', id)
+        setOrganizations(prev => prev.map(o => o.id === id ? { ...o, status: 'approved' } : o))
+    }
+
+    // Reject organization
+    const handleRejectOrg = async (id) => {
+        await supabase.from('organizations').update({ status: 'rejected' }).eq('id', id)
+        setOrganizations(prev => prev.map(o => o.id === id ? { ...o, status: 'rejected' } : o))
+    }
+
+    // Delete organization
+    const handleDeleteOrg = async (id) => {
+        if (confirm('Delete this organization?')) {
+            await supabase.from('organizations').delete().eq('id', id)
+            setOrganizations(prev => prev.filter(o => o.id !== id))
+        }
+    }
+
     // ══ AUTH GATE ══
     if (!isAuthenticated) {
         return <LoginScreen onLogin={() => setIsAuthenticated(true)} />
@@ -351,6 +386,7 @@ function AdminPanel() {
                         <span className="tools-count">{tools.length} Tools</span>
                         <span className="requests-count">{requests.length} Requests</span>
                         <span className="waitlist-count-badge">{waitlist.length} Waitlist</span>
+                        <span className="tools-count">{organizations.filter(o => o.status === 'pending').length} Pending Orgs</span>
                         <a href="/" className="admin-link-site">← Back to Site</a>
                         <button className="btn-logout" onClick={handleLogout}>Logout</button>
                     </div>
@@ -378,6 +414,12 @@ function AdminPanel() {
                         onClick={() => setActiveTab('waitlist')}
                     >
                         📋 Waitlist ({waitlist.length})
+                    </button>
+                    <button
+                        className={`admin-tab ${activeTab === 'organizations' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('organizations')}
+                    >
+                        🏢 Organizations ({organizations.length})
                     </button>
                 </div>
 
@@ -657,6 +699,62 @@ function AdminPanel() {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ═══ ORGANIZATIONS TAB ═══ */}
+                {activeTab === 'organizations' && (
+                    <div className="admin-section">
+                        <div className="section-top">
+                            <h2>🏢 Organization Requests</h2>
+                            <span className="req-info">
+                                {organizations.filter(o => o.status === 'pending').length} pending · {organizations.filter(o => o.status === 'approved').length} approved
+                            </span>
+                        </div>
+
+                        {organizations.length === 0 ? (
+                            <div className="empty-state">
+                                <span className="empty-icon">🏢</span>
+                                <h3>No organizations yet</h3>
+                                <p>When organizations sign up for collaboration, they'll appear here for approval.</p>
+                            </div>
+                        ) : (
+                            <div className="admin-tools-grid">
+                                {organizations.map(org => (
+                                    <div key={org.id} className={`admin-tool-card ${org.status === 'approved' ? 'live' : org.status === 'rejected' ? '' : 'soon'}`}>
+                                        <div className="atc-header">
+                                            <span className="atc-icon">🏢</span>
+                                            <span className={`atc-status ${org.status === 'approved' ? 'live' : org.status === 'pending' ? 'soon' : ''}`}
+                                                style={org.status === 'rejected' ? { color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' } : {}}
+                                            >
+                                                {org.status?.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <h4>{org.company_name}</h4>
+                                        <p>@{org.username}</p>
+                                        <div className="atc-link">
+                                            <span className="link-label">🤖 AI Tool: {org.ai_tools}</span>
+                                            <span className="link-url">Joined: {new Date(org.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="atc-actions">
+                                            {org.status === 'pending' && (
+                                                <>
+                                                    <button className="btn-edit" onClick={() => handleApproveOrg(org.id)} style={{ background: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.2)', color: '#22c55e' }}>✅ Approve</button>
+                                                    <button className="btn-delete" onClick={() => handleRejectOrg(org.id)}>❌ Reject</button>
+                                                </>
+                                            )}
+                                            {org.status === 'approved' && (
+                                                <button className="btn-delete" onClick={() => handleRejectOrg(org.id)}>Revoke</button>
+                                            )}
+                                            {org.status === 'rejected' && (
+                                                <button className="btn-edit" onClick={() => handleApproveOrg(org.id)}>🔄 Re-approve</button>
+                                            )}
+                                            <button className="btn-delete" onClick={() => handleDeleteOrg(org.id)}>🗑️</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

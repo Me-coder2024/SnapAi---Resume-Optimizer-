@@ -4,6 +4,8 @@ import { callGroq } from './groqApi'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { supabase as _sb } from './supabase'
+import ProfileDropdown from './components/ui/ProfileDropdown'
+import AuthModal from './components/ui/AuthModal'
 
 const BotPage = () => {
     const navigate = useNavigate()
@@ -12,6 +14,7 @@ const BotPage = () => {
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
+    const [showAuthModal, setShowAuthModal] = useState(false)
 
     // Handle window resize for sidebar
     useEffect(() => {
@@ -274,10 +277,15 @@ const BotPage = () => {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                             <span className="text-[#EDEDEF] font-semibold">{walletCredits}</span> <span className="hidden sm:inline">credits</span>
                         </div>
-                        <button onClick={startNewChat} className="text-xs font-mono text-[#A1A1A9] bg-[#111113] border border-[#27272F] px-2 sm:px-3 py-1.5 rounded-md hover:text-[#EDEDEF] hover:border-[#33333D] transition-colors flex items-center gap-1.5">
+                        <button onClick={startNewChat} className="text-xs font-mono text-[#A1A1A9] bg-[#111113] border border-[#27272F] px-2 sm:px-3 py-1.5 rounded-md hover:text-[#EDEDEF] hover:border-[#33333D] transition-colors flex items-center gap-1.5 hidden sm:flex">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             <span className="hidden sm:inline">New Chat</span>
                         </button>
+                        {user ? (
+                            <ProfileDropdown user={user} walletCredits={walletCredits} onOpenProfile={() => navigate('/profile')} />
+                        ) : (
+                            <button className="bg-[#EDEDEF] text-[#09090B] font-medium text-xs px-3 py-1.5 rounded-md hover:bg-[#D4D4D8] transition-colors" onClick={() => setShowAuthModal(true)}>Login</button>
+                        )}
                     </div>
                 </div>
 
@@ -406,6 +414,7 @@ const BotPage = () => {
                     </div>
                 </div>
             </main>
+            <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </div>
     )
 }

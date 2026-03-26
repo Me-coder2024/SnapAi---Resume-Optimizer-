@@ -6,6 +6,45 @@
 (function () {
     'use strict';
 
+    // ── Supabase Tracking (direct from frontend) ──
+    const SUPABASE_URL = 'https://uqecohingwfpbpvyxsnf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxZWNvaGluZ3dmcGJwdnl4c25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjA3MDksImV4cCI6MjA4NzMzNjcwOX0.38_NUg2GED-bwDplJrqbvinRYTKNUX-qd1sb49DxP9U';
+
+    // Lightweight Supabase REST insert (no SDK needed)
+    async function supabaseInsert(table, row) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify(row),
+            });
+        } catch (e) {
+            console.warn('Tracking insert failed:', e);
+        }
+    }
+
+    // Session ID for tracking
+    let _trackSid = sessionStorage.getItem('snapai_sid');
+    if (!_trackSid) {
+        _trackSid = 'sid_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        sessionStorage.setItem('snapai_sid', _trackSid);
+    }
+
+    function trackBotInteraction(question, response, option) {
+        supabaseInsert('track_bots', {
+            bot: 'InternBot',
+            question: question || '',
+            response: response || '',
+            option: option || '',
+            session_id: _trackSid,
+        });
+    }
+
     // ── DOM References ──
     const chatArea = document.getElementById('chatArea');
     const quickRepliesContainer = document.getElementById('quickRepliesContainer');
@@ -1108,6 +1147,13 @@
         clearQuickReplies();
         setInputEnabled(false, '');
 
+        // Track this search interaction
+        trackBotInteraction(
+            `Search: ${searchParams.role} (${searchParams.type})`,
+            `Skills: ${searchParams.skills.join(', ')} | Mode: ${searchParams.workMode} | Location: ${searchParams.location || 'Any'}`,
+            searchParams.type
+        );
+
         // Check credits from parent wallet
         const credits = await requestCreditCheck();
         if (credits < CREDITS_PER_SEARCH) {
@@ -1337,6 +1383,9 @@
 
     // ── Handle user action ──
     function handleUserAction(value) {
+        // Track every user action in InternBot
+        trackBotInteraction(value, '', currentState);
+
         switch (currentState) {
             case STATE.ASK_TYPE:
                 addUserMessage(

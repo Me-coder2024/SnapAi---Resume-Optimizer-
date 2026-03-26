@@ -6,7 +6,11 @@ import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPass
 import WaitingList from './WaitingList'
 import HeroScene3D from './HeroScene3D'
 import { callGroq } from './groqApi'
-
+import { GlowingEffectDemo } from './components/ui/demo'
+import { GlowCard } from './components/ui/spotlight-card'
+import AuthModal from './components/ui/AuthModal'
+import ProfileDropdown from './components/ui/ProfileDropdown'
+import { trackVisit, trackBotInteraction, trackPing } from './tracking'
 
 // ═══════════════════════════════════════
 //  WALLET HELPERS (Supabase-backed)
@@ -254,6 +258,9 @@ const Chatbot = ({ user, onLoginRequired }) => {
         setInput('')
         setIsTyping(true)
 
+        // Track interaction with SnapAI bot
+        trackBotInteraction('SnapAI', text);
+
         try {
             const aiText = await callGroq(text)
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -365,60 +372,21 @@ const DEFAULT_TOOLS = [
 // ═══════════════════════════════════════
 //  PROFILE DROPDOWN (Navbar)
 // ═══════════════════════════════════════
-const ProfileDropdown = ({ user, walletCredits, onOpenProfile }) => {
-    const [open, setOpen] = useState(false)
-    const dropdownRef = useRef(null)
 
-    useEffect(() => {
-        const handleClick = (e) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handleClick)
-        return () => document.removeEventListener('mousedown', handleClick)
-    }, [])
-
-    const initial = (user.displayName || user.email || 'U')[0].toUpperCase()
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <button className="flex items-center gap-2 text-sm" onClick={() => setOpen(!open)} aria-label="Profile menu">
-                <span className="w-8 h-8 rounded-full bg-[#1A1A1F] border border-[#27272F] text-[#EDEDEF] flex items-center justify-center text-xs font-medium">{initial}</span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-[#63636E]">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-                    {walletCredits}
-                </span>
-            </button>
-            {open && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-[#1A1A1F] border border-[#27272F] rounded-lg overflow-hidden shadow-elevated animate-fade-in z-50">
-                    <div className="px-4 py-3 border-b border-[#1C1C22]">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-[#222228] border border-[#27272F] text-[#EDEDEF] flex items-center justify-center text-sm font-medium">{initial}</div>
-                            <div className="min-w-0">
-                                <div className="text-sm font-medium text-[#EDEDEF] truncate">{user.displayName || user.email.split('@')[0]}</div>
-                                <div className="text-xs text-[#63636E] truncate">{user.email}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="py-1">
-                        <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#A1A1A9] hover:text-[#EDEDEF] hover:bg-[#222228] transition-colors" onClick={() => { setOpen(false); onOpenProfile() }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                            Profile & Wallet
-                        </button>
-                        <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#EF4444] hover:bg-[#EF4444]/8 transition-colors" onClick={() => { setOpen(false); signOut(auth) }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                            Log out
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
 
 
 function App() {
     const navigate = useNavigate()
     const [filter, setFilter] = useState('All')
+
+    useEffect(() => {
+        trackVisit();
+        
+        // Active User Heartbeat — direct to Supabase
+        trackPing(); // Initial ping
+        const intervalId = setInterval(() => trackPing(), 15000); // Ping every 15 seconds
+        return () => clearInterval(intervalId);
+    }, []);
 
     // Waitlist toggle — now synced via Supabase settings
     const [showWaitlist, setShowWaitlist] = useState(false)
@@ -568,18 +536,21 @@ function App() {
     return (
         <div className="bg-[#09090B] text-[#A1A1A9] min-h-screen font-sans">
             <nav className="sticky top-0 z-50 bg-[#09090B]/80 backdrop-blur-sm border-b border-[#1C1C22] h-16">
-                <div className="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
-                    <div className="font-semibold text-[#EDEDEF] text-lg font-mono">SnapAI</div>
-                    <div className="hidden md:flex items-center gap-8">
+                <div className="max-w-6xl mx-auto px-6 h-full flex items-center justify-between relative">
+                    <div className="font-semibold text-[#EDEDEF] text-lg font-mono flex-1">SnapAI</div>
+                    <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
                         <a href="#tools" className="text-sm text-[#63636E] hover:text-[#EDEDEF] transition-colors">Tools</a>
                         <a href="#request" className="text-sm text-[#63636E] hover:text-[#EDEDEF] transition-colors">Request</a>
                         <a href="#about" className="text-sm text-[#63636E] hover:text-[#EDEDEF] transition-colors">About</a>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-end gap-3 flex-1">
+                        {!user && (
+                            <a href="/organization" className="bg-transparent border border-[#27272F] text-[#A1A1A9] text-sm font-medium px-4 py-1.5 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all">Organization</a>
+                        )}
                         {user ? (
                             <ProfileDropdown user={user} walletCredits={wallet.credits} onOpenProfile={() => navigate('/profile')} />
                         ) : (
-                            <button className="bg-transparent border border-[#27272F] text-[#A1A1A9] text-sm font-medium px-4 py-1.5 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all" onClick={() => setShowAuthModal(true)}>Login</button>
+                            <button className="bg-[#EDEDEF] text-[#09090B] font-medium text-sm px-4 py-1.5 rounded-md hover:bg-[#D4D4D8] transition-colors" onClick={() => setShowAuthModal(true)}>Login</button>
                         )}
                     </div>
                 </div>
@@ -640,7 +611,7 @@ function App() {
                             {filteredTools.map(tool => {
                                 const btns = tool.buttons || [{ name: tool.buttonName || 'Try Now', link: tool.buttonLink || '#' }]
                                 return (
-                                    <div key={tool.id} className="bg-[#111113] border border-[#1C1C22] rounded-lg p-6 hover:border-[#27272F] transition-all flex flex-col card-hover">
+                                    <GlowCard key={tool.id} glowColor="white" customSize={true} className="card-hover">
                                         <div className="flex items-center justify-between mb-4">
                                             <span className={`inline-flex items-center text-xs font-mono px-2 py-0.5 rounded-md border ${tool.status === 'LIVE' ? 'bg-[#22C55E]/8 border-[#22C55E]/20 text-[#22C55E]' : 'bg-[#111113] border-[#27272F] text-[#63636E]'}`}>
                                                 {tool.status === 'LIVE' && <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] mr-1.5"></span>}
@@ -650,21 +621,31 @@ function App() {
                                         <h3 className="text-heading text-[#EDEDEF] font-medium mb-2">{tool.name}</h3>
                                         <p className="text-small text-[#A1A1A9] leading-relaxed mb-6 flex-1">{tool.description}</p>
                                         {tool.status === 'LIVE' ? (
-                                            <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-[#1C1C22]">
+                                            <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-[#1C1C22]/60">
                                                 {btns.map((b, i) => (
-                                                    <a key={i} href={b.link || '#'} className="inline-flex items-center justify-center gap-1.5 bg-transparent border border-[#27272F] text-[#A1A1A9] text-xs font-medium px-4 py-2 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all" target="_blank" rel="noopener noreferrer">{b.name || 'Try Now'} →</a>
+                                                    <a key={i} href={b.link || '#'} className="inline-flex items-center justify-center gap-1.5 bg-transparent border border-[#27272F] text-[#A1A1A9] text-xs font-medium px-4 py-2 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all relative z-10" target="_blank" rel="noopener noreferrer">{b.name || 'Try Now'} →</a>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#1C1C22]">
+                                            <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#1C1C22]/60">
                                                 <span className="text-xs text-[#63636E] font-mono">Launches in {tool.launchDays || tool.launch_days || '15 Days'}</span>
-                                                <button className="inline-flex items-center gap-1 bg-transparent border border-[#27272F] text-[#A1A1A9] text-xs font-medium px-3 py-1.5 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all">Notify me →</button>
+                                                <button className="inline-flex items-center gap-1 bg-transparent border border-[#27272F] text-[#A1A1A9] text-xs font-medium px-3 py-1.5 rounded-md hover:border-[#33333D] hover:text-[#EDEDEF] hover:bg-[#111113] transition-all relative z-10">Notify me →</button>
                                             </div>
                                         )}
-                                    </div>
+                                    </GlowCard>
                                 )
                             })}
                         </div>
+                    </div>
+                </section>
+
+                <section className="py-20 sm:py-28 border-t border-[#1C1C22]">
+                    <div className="max-w-6xl mx-auto px-6">
+                        <div className="mb-12 text-center">
+                            <p className="text-[10px] uppercase tracking-wider text-[#3B82F6] font-mono mb-3">Core Infrastructure</p>
+                            <h2 className="text-title text-[#EDEDEF]">Built for speed and precision</h2>
+                        </div>
+                        <GlowingEffectDemo />
                     </div>
                 </section>
 
@@ -780,54 +761,54 @@ function App() {
                     </div>
                 </section>
 
-                <section id="about" className="py-20 sm:py-28 border-t border-[#1C1C22]">
+                <section id="about" className="py-12 sm:py-24 border-t border-[#1C1C22]">
                     <div className="max-w-6xl mx-auto px-6">
                         {/* ── Header ── */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 mb-16">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-16 mb-10 sm:mb-16">
                             <div>
-                                <p className="text-[10px] uppercase tracking-wider text-[#3B82F6] font-mono mb-3">Who We Are</p>
+                                <p className="text-[10px] uppercase tracking-wider text-[#3B82F6] font-mono mb-2 sm:mb-3">Who We Are</p>
                                 <h2 className="text-[1.875rem] leading-[1.2] font-semibold tracking-tight text-[#EDEDEF]">
                                     We Ship AI Tools Every 15 Days.
                                 </h2>
                             </div>
-                            <div className="lg:pt-8">
-                                <p className="text-base text-[#A1A1A9] leading-relaxed">
+                            <div className="lg:pt-8 mt-2 sm:mt-0">
+                                <p className="text-base text-gray-400 leading-relaxed">
                                     SnapAI Labs is a small team obsessed with speed. We build the most-requested AI utilities from our community in 15 days, and ship them &mdash; no fluff, no bloat.
                                 </p>
                             </div>
                         </div>
 
                         {/* ── Value Props ── */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#1C1C22] rounded-lg overflow-hidden mb-16 stagger-children">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#1C1C22] rounded-lg overflow-hidden mb-12 sm:mb-16 stagger-children">
                             {[
                                 { num: '01', title: 'Our Mission', body: 'Make powerful AI tools accessible to everyone — not just big companies with big budgets.' },
                                 { num: '02', title: 'How We Work', body: 'Community votes on what to build next. We ship it in 15 days. Repeat. Forever.' },
                                 { num: '03', title: 'Our Promise', body: 'No subscriptions that lock you in. Pay once per tool. Use it forever. Cancel anytime.' },
                             ].map((c, i) => (
-                                <div key={i} className="bg-[#111113] p-6 sm:p-8">
+                                <div key={i} className="bg-[#111113] p-5 sm:p-8">
                                     <span className="text-[10px] font-mono text-[#3A3A44] tracking-wider">{c.num}</span>
                                     <h3 className="text-sm font-semibold text-[#EDEDEF] mt-3 mb-2">{c.title}</h3>
-                                    <p className="text-sm text-[#63636E] leading-relaxed">{c.body}</p>
+                                    <p className="text-sm text-gray-400 leading-relaxed">{c.body}</p>
                                 </div>
                             ))}
                         </div>
 
                         {/* ── How It Works ── */}
-                        <div className="mb-16">
-                            <p className="text-[10px] uppercase tracking-wider text-[#3B82F6] font-mono mb-8">How It Works</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-children">
+                        <div className="mb-12 sm:mb-16">
+                            <p className="text-[10px] uppercase tracking-wider text-[#3B82F6] font-mono mb-6 mx-0 sm:mb-8">How It Works</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 stagger-children">
                                 {[
                                     { title: 'You Request', desc: 'Submit the AI tool you need via our request form. Tell us what problem to solve.' },
                                     { title: 'We Build', desc: 'Our team sprints to build it in 15 days — rigorously tested and polished.' },
                                     { title: 'You Get It', desc: 'Early members get notified first with exclusive early access and 20% off.' },
                                 ].map((s, i) => (
-                                    <div key={i} className="flex gap-4">
+                                    <div key={i} className="flex gap-3 sm:gap-4">
                                         <div className="w-8 h-8 rounded-md bg-[#111113] border border-[#1C1C22] flex items-center justify-center shrink-0 mt-0.5">
                                             <span className="text-xs font-mono text-[#EDEDEF]">{i + 1}</span>
                                         </div>
                                         <div>
                                             <h4 className="text-sm font-medium text-[#EDEDEF] mb-1">{s.title}</h4>
-                                            <p className="text-sm text-[#63636E] leading-relaxed">{s.desc}</p>
+                                            <p className="text-sm text-gray-400 leading-relaxed">{s.desc}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -870,93 +851,6 @@ function App() {
     )
 }
 
-const AuthModal = ({ isOpen, onClose }) => {
-    const [isLogin, setIsLogin] = useState(true)
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
 
-    if (!isOpen) return null;
-
-    const handleEmailAuth = async (e) => {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
-        try {
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password)
-            } else {
-                await createUserWithEmailAndPassword(auth, email, password)
-            }
-            onClose()
-        } catch (err) {
-            setError(err.message.replace('Firebase: ', ''))
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleGoogleAuth = async () => {
-        try {
-            await signInWithPopup(auth, googleProvider)
-            onClose()
-        } catch (err) {
-            setError("Google sign-in failed. Please try again.")
-        }
-    }
-
-    return (
-        <div className="fixed inset-0 bg-[#00000099] backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-[#1A1A1F] border border-[#27272F] rounded-lg w-full max-w-md p-8 relative shadow-2xl animate-slide-up">
-                <button className="absolute top-4 right-4 text-[#63636E] hover:text-[#EDEDEF] transition-colors" onClick={onClose}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-                <div className="mb-8">
-                    <h2 className="text-2xl font-semibold tracking-tight text-[#EDEDEF] mb-2">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-                    <p className="text-sm text-[#A1A1A9]">{isLogin ? 'Log in to access premium features' : 'Join SnapAI to build your customized tools'}</p>
-                </div>
-
-                {error && <div className="bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-sm px-4 py-3 rounded-md mb-6">{error}</div>}
-
-                <form className="space-y-5" onSubmit={handleEmailAuth}>
-                    <div>
-                        <label className="text-sm font-medium text-[#EDEDEF] mb-2 block">Email Address</label>
-                        <input type="email" className="w-full bg-[#111113] border border-[#27272F] rounded-md px-4 py-2.5 text-sm text-[#EDEDEF] placeholder-[#3A3A44] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/20 outline-none transition-all" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-[#EDEDEF] mb-2 block">Password</label>
-                        <input type="password" className="w-full bg-[#111113] border border-[#27272F] rounded-md px-4 py-2.5 text-sm text-[#EDEDEF] placeholder-[#3A3A44] focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/20 outline-none transition-all" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
-                    </div>
-                    <button type="submit" className="w-full bg-[#EDEDEF] text-[#09090B] font-medium text-sm px-6 py-2.5 rounded-md hover:bg-[#D4D4D8] hover:-translate-y-[1px] transition-all" disabled={loading}>
-                        {loading ? 'Processing...' : isLogin ? 'Login' : 'Register'}
-                    </button>
-                </form>
-
-                <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#27272F]"></div></div>
-                    <div className="relative flex justify-center text-xs"><span className="bg-[#1A1A1F] px-2 text-[#63636E]">OR</span></div>
-                </div>
-
-                <button type="button" className="w-full bg-[#111113] border border-[#27272F] text-[#EDEDEF] font-medium text-sm px-6 py-2.5 rounded-md hover:border-[#33333D] hover:bg-[#222228] transition-colors flex items-center justify-center gap-3" onClick={handleGoogleAuth}>
-                    <svg viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    Continue with Google
-                </button>
-
-                <div className="mt-6 text-center text-sm text-[#A1A1A9]">
-                    {isLogin ? "Don't have an account? " : "Already have an account? "}
-                    <button className="text-[#3B82F6] font-medium hover:text-[#2563EB] hover:underline" onClick={() => { setIsLogin(!isLogin); setError(''); }}>
-                        {isLogin ? 'Sign up \u2192' : 'Log in \u2192'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
 
 export default App

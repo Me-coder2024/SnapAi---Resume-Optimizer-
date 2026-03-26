@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { supabase as _sb } from './supabase'
+import { trackBotInteraction, trackVisit, trackTrainingData } from './tracking'
 
 /* ═══════════════════════════════════════
    SKILL DATABASE (same as chatbot InternBot)
@@ -79,6 +80,9 @@ const InternBotPage = () => {
 
     // Auth + wallet
     useEffect(() => {
+        // Track the visit to InternBot page
+        trackVisit(window.location.pathname);
+
         const unsub = onAuthStateChanged(auth, async (u) => {
             setUser(u)
             if (u) {
@@ -142,6 +146,45 @@ const InternBotPage = () => {
         })
         if (workMode === 'Remote') params.set('remote_jobs_only', 'true')
 
+        // Track the user interaction
+        trackBotInteraction('InternBot', query, 'Searching for internships...', `Role: ${role}, Type: ${type}, Env: ${workMode}`);
+
+        // Fetch org-posted internships from Supabase (partner listings)
+        let orgJobs = []
+        try {
+            const { data: orgData } = await _sb
+                .from('org_internships')
+                .select('*, organizations(company_name)')
+                .eq('status', 'active')
+            if (orgData && orgData.length > 0) {
+                const roleLower = role.toLowerCase()
+                const userSkills = skills.map(s => s.toLowerCase())
+                orgJobs = orgData
+                    .filter(oi => {
+                        // Match by role in title
+                        const titleMatch = oi.title.toLowerCase().includes(roleLower) || roleLower.includes(oi.title.toLowerCase().replace(' intern', ''))
+                        // Match by overlapping skills
+                        const oiSkills = (oi.skills || '').toLowerCase().split(',').map(s => s.trim())
+                        const skillMatch = userSkills.some(us => oiSkills.includes(us))
+                        // Match work mode
+                        const modeMatch = !workMode || oi.work_mode === workMode || oi.work_mode === 'Hybrid'
+                        return (titleMatch || skillMatch) && modeMatch
+                    })
+                    .map(oi => ({
+                        title: oi.title,
+                        company: oi.organizations?.company_name || 'SnapAI Partner',
+                        location: oi.location || 'India',
+                        remote: oi.work_mode === 'Remote',
+                        url: '#',
+                        logo: null,
+                        posted: oi.created_at,
+                        platform: 'SnapAI Partner',
+                        positions: oi.positions,
+                        internType: oi.type,
+                    }))
+            }
+        } catch (e) { /* ignore — org_internships table may not exist yet */ }
+
         try {
             const resp = await fetch(`https://${JSEARCH_HOST}/search?${params}`, {
                 headers: { 'x-rapidapi-key': rapidApiKey, 'x-rapidapi-host': JSEARCH_HOST },
@@ -159,11 +202,21 @@ const InternBotPage = () => {
                 posted: job.job_posted_at_datetime_utc,
                 platform: (job.job_google_link || '').includes('linkedin') ? 'LinkedIn' : (job.job_google_link || '').includes('indeed') ? 'Indeed' : 'JSearch',
             }))
-            setResults(jobs)
-            if (jobs.length === 0) setError('No internships found. Try a different role or location.')
+            // Merge: org partner listings first, then JSearch results
+            const allJobs = [...orgJobs, ...jobs]
+            setResults(allJobs)
+            if (allJobs.length === 0) setError('No internships found. Try a different role or location.')
+            
+            // Log pseudo-conversation for fine-tuning
+            const finalMessages = [
+                 { role: 'system', content: 'You are InternBot, an internship search assistant.' },
+                 { role: 'user', content: `Find me a ${type} internship as a ${role} with skills: ${skills.join(', ')} in ${workMode}${location ? ' at ' + location : ''}.` },
+                 { role: 'assistant', content: `Found ${allJobs.length} internships matching your criteria.` }
+            ];
+            trackTrainingData('InternBot', finalMessages);
         } catch (e) {
-            // Fallback to Internshala
-            setResults([{
+            // Fallback: show org results + Internshala
+            const fallback = [...orgJobs, {
                 title: `${role} Internship`,
                 company: 'Various Companies',
                 location: location || 'India',
@@ -172,7 +225,8 @@ const InternBotPage = () => {
                 logo: null,
                 posted: null,
                 platform: 'Internshala',
-            }])
+            }]
+            setResults(fallback)
         } finally {
             setLoading(false)
         }
@@ -404,13 +458,13 @@ const InternBotPage = () => {
                                     href={r.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block bg-[#111113] border border-[#1C1C22] rounded-lg p-5 hover:border-[#27272F] transition-all card-hover group"
+                                    className={`block border rounded-lg p-5 hover:border-[#27272F] transition-all card-hover group ${r.platform === 'SnapAI Partner' ? 'bg-[#0a1628] border-[#1e3a5f]' : 'bg-[#111113] border-[#1C1C22]'}`}
                                 >
                                     <div className="flex items-start gap-4">
                                         {r.logo ? (
                                             <img src={r.logo} alt="" className="w-10 h-10 rounded-lg object-contain bg-white" />
                                         ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-[#1C1C22] flex items-center justify-center text-lg">🏢</div>
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${r.platform === 'SnapAI Partner' ? 'bg-[#1e3a5f]' : 'bg-[#1C1C22]'}`}>{r.platform === 'SnapAI Partner' ? '⭐' : '🏢'}</div>
                                         )}
                                         <div className="flex-1 min-w-0">
                                             <h3 className="text-sm font-semibold text-[#EDEDEF] group-hover:text-[#3B82F6] transition-colors truncate">{r.title}</h3>
@@ -418,7 +472,12 @@ const InternBotPage = () => {
                                             <div className="flex flex-wrap items-center gap-1 sm:gap-3 mt-2 text-[9px] sm:text-[10px] font-mono text-[#3A3A44]">
                                                 <span>📍 {r.location}</span>
                                                 {r.remote && <span className="text-[#3B82F6]">🏠 Remote</span>}
-                                                {r.platform && <span className="bg-[#1C1C22] px-1.5 py-0.5 rounded">{r.platform}</span>}
+                                                {r.positions && <span className="text-[#22C55E]">👥 {r.positions} positions</span>}
+                                                {r.platform && (
+                                                    <span className={`px-1.5 py-0.5 rounded ${r.platform === 'SnapAI Partner' ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/20' : 'bg-[#1C1C22]'}`}>
+                                                        {r.platform === 'SnapAI Partner' ? '✨ ' : ''}{r.platform}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#3A3A44] shrink-0 mt-1 group-hover:text-[#3B82F6] transition-colors hidden sm:block">

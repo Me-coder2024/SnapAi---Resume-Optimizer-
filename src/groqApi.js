@@ -1,6 +1,8 @@
 // Shared Groq AI API logic
 // Used by both the floating Chatbot and the /bot page
 
+import { trackTrainingData } from './tracking';
+
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 
 export const SYSTEM_INSTRUCTION = `You are SnapAI Assistant, the professional and empathetic Customer Service Representative for SnapAI Labs — an AI tools company that builds on-demand AI tools every 15 days.
@@ -55,7 +57,14 @@ export async function callGroq(userMessage, history = [], retries = 3) {
             }
 
             const data = await response.json();
-            return data.choices[0].message.content;
+            const aiText = data.choices[0].message.content;
+            
+            // Log the full conversation interaction for fine-tuning
+            const finalMessages = [...messages, { role: 'assistant', content: aiText }];
+            // Fire-and-forget logging
+            trackTrainingData('SnapAI', finalMessages).catch(e => console.error("Track dataset error", e));
+
+            return aiText;
         } catch (err) {
             console.warn(`Attempt ${attempt + 1} failed:`, err.message || err)
             if (err.message?.includes("429") || err.message?.includes("rate") || err.message?.includes("quota") || err.message?.includes("Resource has been exhausted")) {

@@ -6,6 +6,8 @@ import AdminPanel from './AdminPanel.jsx'
 import ProfilePage from './ProfilePage.jsx'
 import BotPage from './BotPage.jsx'
 import InternBotPage from './InternBotPage.jsx'
+import OrganizationPage from './OrganizationPage.jsx'
+import TrackWebPage from './TrackWebPage.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -17,6 +19,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/bot" element={<BotPage />} />
                 <Route path="/intern-bot" element={<InternBotPage />} />
+                <Route path="/organization" element={<OrganizationPage />} />
+                <Route path="/track-web" element={<TrackWebPage />} />
             </Routes>
         </BrowserRouter>
     </React.StrictMode>,

@@ -828,11 +828,13 @@ export default function ResumeBuilderPage() {
             {/* Navbar */}
             <nav className="rb-nav">
                 <div className="rb-nav-inner">
-                    <Link to="/" className="rb-logo">SnapAI</Link>
-                    <div className="rb-nav-title">
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+                        <Link to="/" className="rb-logo">SnapAI</Link>
+                    </div>
+                    <div className="rb-nav-title" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                         <span>📄</span> AI Resume Builder
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ flex: 1, display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'flex-end' }}>
                         {user ? (
                             <ProfileDropdown user={user} walletCredits={walletCredits} onOpenProfile={() => window.location.href='/profile'} />
                         ) : (
@@ -852,7 +854,7 @@ export default function ResumeBuilderPage() {
                             className="rb-btn rb-btn-secondary"
                             style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', textDecoration: 'none' }}
                         >
-                            🏠 Home
+                            Home
                         </Link>
                     </div>
                 </div>

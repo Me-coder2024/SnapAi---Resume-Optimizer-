@@ -5,7 +5,7 @@ import { auth, googleProvider } from './firebase'
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth'
 import WaitingList from './WaitingList'
 import HeroScene3D from './HeroScene3D'
-import { callGroq } from './groqApi'
+import { callGemini } from './geminiApi'
 import { GlowingEffectDemo } from './components/ui/demo'
 import { GlowCard } from './components/ui/spotlight-card'
 import AuthModal from './components/ui/AuthModal'
@@ -17,7 +17,7 @@ import { trackVisit, trackBotInteraction, trackPing } from './tracking'
 // ═══════════════════════════════════════
 const DEFAULT_FREE_CREDITS = 10
 
-async function loadWallet(uid) {
+export async function loadWallet(uid) {
     if (!uid) return { credits: 0, transactions: [] }
     try {
         // Load or create wallet
@@ -47,7 +47,7 @@ async function loadWallet(uid) {
     }
 }
 
-async function addCredits(uid, amount, packName) {
+export async function addCredits(uid, amount, packName) {
     if (!uid) return null
     try {
         // Get current balance
@@ -71,7 +71,7 @@ async function addCredits(uid, amount, packName) {
     }
 }
 
-async function deductCredits(uid, amount, toolName) {
+export async function deductCredits(uid, amount, toolName) {
     if (!uid) return null
     try {
         const { data: wallet } = await _sb.from('user_wallets').select('credits').eq('uid', uid).single()
@@ -262,7 +262,7 @@ const Chatbot = ({ user, onLoginRequired }) => {
         trackBotInteraction('SnapAI', text);
 
         try {
-            const aiText = await callGroq(text)
+            const aiText = await callGemini(text)
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             if (aiText.includes("[LAUNCH_INTERNBOT]")) {

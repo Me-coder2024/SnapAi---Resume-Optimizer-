@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { callGroq } from './groqApi'
+import { callGemini } from './geminiApi'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { supabase as _sb } from './supabase'
@@ -154,7 +154,7 @@ const BotPage = () => {
         setIsTyping(true)
 
         try {
-            const aiText = await callGroq(text.trim(), messages)
+            const aiText = await callGemini(text.trim(), messages)
             const aiTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
             if (aiText.includes('[LAUNCH_INTERNBOT]')) {

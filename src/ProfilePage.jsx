@@ -60,9 +60,9 @@ async function addCredits(uid, amount, packName) {
 //  CREDIT PACKS
 // ═══════════════════════════════════════
 const CREDIT_PACKS = [
-    { id: 1, credits: 10, price: 20, label: '10 Credits', badge: '' },
-    { id: 2, credits: 30, price: 50, label: '30 Credits', badge: 'POPULAR', save: '17%' },
-    { id: 3, credits: 50, price: 80, label: '50 Credits', badge: 'BEST VALUE', save: '20%' },
+    { id: 1, credits: 20, price: 15, label: '20 Credits', badge: '' },
+    { id: 2, credits: 55, price: 50, label: '55 Credits', badge: 'POPULAR', save: '+5 Bonus' },
+    { id: 3, credits: 90, price: 80, label: '90 Credits', badge: 'BEST VALUE', save: '+10 Bonus' },
 ]
 
 // ═══════════════════════════════════════
@@ -74,6 +74,7 @@ export default function ProfilePage() {
     const [wallet, setWallet] = useState({ credits: 0, transactions: [] })
     const [buying, setBuying] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [customAmount, setCustomAmount] = useState('')
 
     const refreshWallet = useCallback(async (uid) => {
         if (!uid) { setWallet({ credits: 0, transactions: [] }); return }
@@ -103,9 +104,67 @@ export default function ProfilePage() {
 
     const handleBuyPack = async (pack) => {
         setBuying(pack.id)
-        await addCredits(user.uid, pack.credits, `${pack.label} — ₹${pack.price}`)
-        await refreshWallet(user.uid)
-        setBuying(null)
+        try {
+            // 1. Create order
+            const { data, error } = await _sb.functions.invoke('create-razorpay-order', {
+                body: { 
+                    amount: pack.price,
+                    notes: {
+                        uid: user.uid,
+                        email: user.email,
+                        credits: String(pack.credits),
+                        label: pack.label
+                    }
+                }
+            })
+            
+            if (error || !data) throw error || new Error("Failed to create order")
+            
+            // 2. Configure options
+            const options = {
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: pack.price * 100, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+                currency: "INR",
+                name: "SnapAI",
+                description: pack.label,
+                order_id: data.id, // This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+                handler: async function (response) {
+                    try {
+                        // Keep UI in processing state
+                        setBuying('custom'); 
+                        
+                        // The backend webhook securely updates the database now!
+                        // Wait 3 seconds to ensure the webhook has completed, then refresh UI
+                        setTimeout(async () => {
+                            await refreshWallet(user.uid);
+                            setBuying(null);
+                        }, 3000);
+                    } catch(err) {
+                        console.error('Failed refreshing post-payment', err)
+                        setBuying(null)
+                    }
+                },
+                prefill: {
+                    name: user.displayName || 'User',
+                    email: user.email
+                },
+                theme: {
+                    color: "#111113"
+                }
+            };
+            
+            // 3. Open modal
+            const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', function (response){
+                console.error("Payment Failed", response.error.description);
+                setBuying(null);
+            });
+            rzp.open();
+        } catch(err) {
+            console.error('Error starting checkout:', err)
+            alert('Could not initiate payment. Please try again.')
+            setBuying(null)
+        }
     }
 
     return (
@@ -204,9 +263,42 @@ export default function ProfilePage() {
                             </button>
                         ))}
                     </div>
-                    <p className="text-xs text-[#63636E] mt-4 flex items-center gap-2">
+
+                    {/* Custom Credits Input */}
+                    <div className="mt-6 bg-[#111113] border border-[#1C1C22] rounded-lg p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                            <h3 className="text-sm font-medium text-[#EDEDEF] mb-1">Custom Amount</h3>
+                            <p className="text-xs text-[#A1A1A9]">1 Credit = ₹1. Enter exactly how much you need.</p>
+                        </div>
+                        <div className="flex w-full md:w-auto items-center gap-3">
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#63636E] font-medium">₹</span>
+                                <input 
+                                    type="number" 
+                                    min="1"
+                                    placeholder="Enter amount" 
+                                    className="bg-[#1A1A1F] border border-[#27272F] text-[#EDEDEF] rounded-md py-2 pl-8 pr-4 w-full md:w-40 text-sm focus:outline-none focus:border-[#3B82F6] transition-colors"
+                                    value={customAmount}
+                                    onChange={(e) => setCustomAmount(e.target.value)}
+                                    disabled={buying !== null}
+                                />
+                            </div>
+                            <button 
+                                className="bg-[#EDEDEF] text-[#09090B] px-5 py-2 rounded-md text-sm font-medium hover:bg-[#D4D4D8] transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => {
+                                    const amt = parseInt(customAmount, 10);
+                                    if (amt > 0) handleBuyPack({ id: 'custom', credits: amt, price: amt, label: `${amt} Custom Credits` });
+                                }}
+                                disabled={!customAmount || parseInt(customAmount, 10) < 1 || buying !== null}
+                            >
+                                {buying === 'custom' ? 'Processing...' : 'Buy Custom'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-[#63636E] mt-6 flex items-center gap-2">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
-                        Payment gateway coming soon — credits added instantly for testing
+                        Payments are securely processed via Razorpay
                     </p>
                 </div>
 

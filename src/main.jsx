@@ -8,6 +8,7 @@ import BotPage from './BotPage.jsx'
 import InternBotPage from './InternBotPage.jsx'
 import OrganizationPage from './OrganizationPage.jsx'
 import TrackWebPage from './TrackWebPage.jsx'
+import ResumeBuilderPage from './ResumeBuilderPage.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <Route path="/intern-bot" element={<InternBotPage />} />
                 <Route path="/organization" element={<OrganizationPage />} />
                 <Route path="/track-web" element={<TrackWebPage />} />
+                <Route path="/resume-builder" element={<ResumeBuilderPage />} />
             </Routes>
         </BrowserRouter>
     </React.StrictMode>,

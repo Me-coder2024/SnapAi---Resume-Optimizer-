@@ -74,14 +74,23 @@ export async function addCredits(uid, amount, packName) {
 export async function deductCredits(uid, amount, toolName) {
     if (!uid) return null
     try {
-        const { data: wallet } = await _sb.from('user_wallets').select('credits').eq('uid', uid).single()
-        if (!wallet || wallet.credits < amount) return null // insufficient
-        const newBalance = wallet.credits - amount
-        await _sb.from('user_wallets').update({ credits: newBalance, updated_at: new Date().toISOString() }).eq('uid', uid)
-        await _sb.from('wallet_transactions').insert([{
-            uid, type: 'debit', amount, tool_name: toolName, description: `Used ${amount} credits for ${toolName}`
-        }])
-        return newBalance
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduct-credits`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ uid, amount, tool: toolName })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+            console.error('Edge function deduct failed:', result.error);
+            return null; // insufficient or error
+        }
+        
+        return result.credits;
     } catch (err) {
         console.warn('deductCredits error (localStorage fallback):', err)
         try {

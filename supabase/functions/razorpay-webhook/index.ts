@@ -46,8 +46,8 @@ serve(async (req) => {
 
     const payload = JSON.parse(payloadString);
 
-    // We only care about payment.captured or order.paid
-    if (payload.event === 'order.paid' || payload.event === 'payment.captured') {
+    // We only care about payment.captured to avoid duplicate processing (and ensure it's configured in Razorpay)
+    if (payload.event === 'payment.captured') {
         // Find notes either in order or payment entity
         const entity = payload.payload.payment?.entity || payload.payload.order?.entity || {};
         const notes = entity.notes || {};

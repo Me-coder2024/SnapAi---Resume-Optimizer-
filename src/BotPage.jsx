@@ -84,16 +84,24 @@ const BotPage = () => {
                 const tool = e.data.tool || 'InternBot'
                 if (!user?.uid) { e.source?.postMessage({ type: 'DEDUCT_FAILED', credits: 0 }, '*'); return }
                 try {
-                    const { data: wallet } = await _sb.from('user_wallets').select('credits').eq('uid', user.uid).single()
-                    if (!wallet || wallet.credits < amount) {
+                    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduct-credits`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ uid: user.uid, amount, tool })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!response.ok || !result.success) {
                         e.source?.postMessage({ type: 'DEDUCT_FAILED', credits: 0 }, '*')
                         return
                     }
-                    const newBal = wallet.credits - amount
-                    await _sb.from('user_wallets').update({ credits: newBal, updated_at: new Date().toISOString() }).eq('uid', user.uid)
-                    await _sb.from('wallet_transactions').insert([{ uid: user.uid, type: 'debit', amount, tool_name: tool, description: `Used ${amount} credits for ${tool}` }])
-                    setWalletCredits(newBal)
-                    e.source?.postMessage({ type: 'DEDUCT_SUCCESS', credits: newBal }, '*')
+
+                    setWalletCredits(result.credits)
+                    e.source?.postMessage({ type: 'DEDUCT_SUCCESS', credits: result.credits }, '*')
                 } catch (err) {
                     console.warn('Deduct error:', err)
                     e.source?.postMessage({ type: 'DEDUCT_FAILED', credits: 0 }, '*')

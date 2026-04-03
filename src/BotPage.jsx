@@ -38,9 +38,11 @@ const BotPage = () => {
 
     // Build InternBot iframe URL
     const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY || ''
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
     const internBotUrl = user
-        ? `/internbot/index.html?uid=${encodeURIComponent(user.uid)}&name=${encodeURIComponent(user.displayName || user.email.split('@')[0])}&email=${encodeURIComponent(user.email)}&rkey=${encodeURIComponent(rapidApiKey)}`
-        : `/internbot/index.html?rkey=${encodeURIComponent(rapidApiKey)}`
+        ? `/internbot/index.html?uid=${encodeURIComponent(user.uid)}&name=${encodeURIComponent(user.displayName || user.email.split('@')[0])}&email=${encodeURIComponent(user.email)}&rkey=${encodeURIComponent(rapidApiKey)}&surl=${encodeURIComponent(supabaseUrl)}&skey=${encodeURIComponent(supabaseKey)}`
+        : `/internbot/index.html?rkey=${encodeURIComponent(rapidApiKey)}&surl=${encodeURIComponent(supabaseUrl)}&skey=${encodeURIComponent(supabaseKey)}`
 
     // Auth listener + wallet load
     useEffect(() => {

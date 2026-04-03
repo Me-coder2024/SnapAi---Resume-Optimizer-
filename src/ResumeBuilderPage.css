@@ -805,6 +805,106 @@
     color: #3B82F6;
 }
 
+/* ── Field Validation Warnings ── */
+.rb-field-warning {
+    font-size: 0.75rem;
+    color: #F59E0B;
+    margin-top: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    border-radius: 0.375rem;
+    line-height: 1.4;
+}
+
+.rb-field-hint {
+    font-size: 0.8125rem;
+    color: #63636E;
+    padding: 0.625rem 0.875rem;
+    background: rgba(59, 130, 246, 0.06);
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    border-radius: 0.5rem;
+    line-height: 1.5;
+}
+
+/* ── ATS Score Gauge ── */
+.rb-ats-gauge {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #1C1C22;
+    background: #0D0D0F;
+}
+
+.rb-ats-gauge-circle {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--ats-color) 0deg,
+        var(--ats-color) var(--ats-progress),
+        #1C1C22 var(--ats-progress),
+        #1C1C22 360deg
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.5s ease;
+}
+
+.rb-ats-gauge-inner {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: #0D0D0F;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+}
+
+.rb-ats-score {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1;
+    transition: color 0.3s;
+}
+
+.rb-ats-label {
+    font-size: 0.5625rem;
+    color: #63636E;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+.rb-ats-tips {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    overflow: hidden;
+}
+
+.rb-ats-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    color: #A1A1A9;
+    line-height: 1.4;
+}
+
+.rb-ats-tip-icon {
+    font-size: 0.625rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
 /* ── Print Styles ── */
 @media print {
     /* Hide the watermark when printing/saving to PDF */
@@ -817,7 +917,8 @@
     .rb-hero,
     .rb-form-panel,
     .rb-preview-header,
-    .rb-preview-actions {
+    .rb-preview-actions,
+    .rb-ats-gauge {
         display: none !important;
     }
 
@@ -858,6 +959,12 @@
         min-height: auto !important;
     }
 
+    /* Ensure links show URL for ATS */
+    .rb-resume-contact a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+
     @page {
         size: letter;
         margin: 0;
@@ -881,5 +988,10 @@
 
     .rb-modes {
         grid-template-columns: 1fr;
+    }
+
+    .rb-ats-gauge {
+        flex-direction: column;
+        text-align: center;
     }
 }

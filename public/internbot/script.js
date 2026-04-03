@@ -6,9 +6,9 @@
 (function () {
     'use strict';
 
-    // ── Supabase Tracking (direct from frontend) ──
-    const SUPABASE_URL = 'https://uqecohingwfpbpvyxsnf.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxZWNvaGluZ3dmcGJwdnl4c25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjA3MDksImV4cCI6MjA4NzMzNjcwOX0.38_NUg2GED-bwDplJrqbvinRYTKNUX-qd1sb49DxP9U';
+    // ── Supabase Tracking (passed from parent app via URL params) ──
+    const SUPABASE_URL = new URLSearchParams(window.location.search).get('surl') || '';
+    const SUPABASE_KEY = new URLSearchParams(window.location.search).get('skey') || '';
 
     // Lightweight Supabase REST insert (no SDK needed)
     async function supabaseInsert(table, row) {

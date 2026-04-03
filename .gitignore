@@ -32,3 +32,13 @@ test_*
 diagnostic.*
 build_output.*
 load_test_result*
+purge_css.js
+*.tmp
+debug_*
+script_*.js
+*.cjs
+*.mjs
+!src/**/*
+!supabase/**/*
+!public/**/*
+!*.config.*

@@ -32,24 +32,32 @@ function cleanJSON(text) {
  * Convert raw experience text into professional action-oriented bullet points
  */
 export async function enhanceExperience(experienceText, targetRole = '') {
-    const roleContext = targetRole ? `\nThe resume is targeting a ${targetRole} role. Include relevant keywords for this role.` : '';
-    const prompt = `You are an expert ATS-optimized resume writer.
-Analyze the following experience description and convert it into 2-4 highly professional, action-oriented bullet points.
+    const roleContext = targetRole ? `\nThe resume is targeting a ${targetRole} role. Weave in 2-3 keywords relevant to this role naturally.` : '';
+    const prompt = `You are a resume writer who writes like a real human, not AI. Rewrite this experience into 3-4 bullet points.
 
-CRITICAL ATS RULES:
-1. Each bullet point MUST start with a strong action verb (e.g., Developed, Implemented, Architected, Optimized, Spearheaded, Engineered)
-2. Do NOT use any bold formatting, asterisks (**), or markdown — plain text only
-3. Each bullet MUST include at least ONE quantified metric (e.g., "reduced load time by 40%", "served 10K+ users", "managed team of 5", "processed 1M+ records daily", "increased revenue by 25%")
-4. If exact numbers are unknown, use reasonable estimates with "~" or "+" (e.g., "~500 users", "50+ endpoints")
-5. Each bullet must be a COMPLETE sentence — never truncate mid-thought
-6. Include relevant technical keywords naturally (e.g., REST APIs, microservices, CI/CD, cloud deployment)
-7. Focus on IMPACT and RESULTS, not just responsibilities
+THE CORE FORMULA — every bullet must follow: Did [action] → which moved [metric] from [X] to [Y]
+
+RULES:
+1. One bullet = one impact. Never combine two achievements in one bullet.
+2. Lead with a strong verb, end with a number. Use verbs like: Engineered, Developed, Built, Designed, Implemented, Integrated, Optimised, Reduced, Led, Founded, Owned, Delivered, Automated. NEVER repeat the same verb twice.
+3. Name the actual technology inside the bullet — don't say "built a backend", say "built a Node.js/Express backend". ATS scans bullet text for tech keywords.
+4. Max 2 lines per bullet. If it's longer, cut it.
+5. Show ownership, not participation. "Sole developer for" > "Led development of" > "Participated in building".
+6. Every bullet MUST have exactly ONE number — use whichever type fits:
+   - Volume: processed 1,000+ daily orders
+   - Speed/time saved: reduced setup time from 2 hours to 15 minutes
+   - Scale: serving 100+ users / 8+ clients
+   - Percentage change: improved load time by 65%
+7. If you don't have exact numbers, use honest estimates with "~" or "+" — that's fine and ATS-friendly.
+8. Do NOT use bold, asterisks, or any markdown formatting. Plain text only.
+9. Each bullet must be a COMPLETE sentence — never truncate mid-thought.
+10. HUMAN CHECK: if the bullet sounds like it could describe anyone's job, rewrite it to be more specific.
 ${roleContext}
 
 Experience:
 ${experienceText}
 
-Output ONLY the bullet points, one per line. No numbering, no dashes, no bold, no markdown.`
+Output ONLY the bullet points, one per line. No numbering, no dashes, no prefixes.`
 
     try {
         const text = await callGeminiResume(prompt)
@@ -64,24 +72,32 @@ Output ONLY the bullet points, one per line. No numbering, no dashes, no bold, n
  * Convert project description into professional bullet points
  */
 export async function enhanceProject(name, description, targetRole = '') {
-    const roleContext = targetRole ? `\nThe resume is targeting a ${targetRole} role. Include relevant keywords for this role.` : '';
-    const prompt = `You are an expert ATS-optimized resume writer.
-Analyze the following software project and convert it into 2-3 highly professional, action-oriented bullet points.
+    const roleContext = targetRole ? `\nThe resume is targeting a ${targetRole} role. Weave in 2-3 keywords relevant to this role naturally.` : '';
+    const prompt = `You are a resume writer who writes like a real human, not AI. Rewrite this project into exactly 2 bullet points.
 
-CRITICAL ATS RULES:
-1. Each bullet point MUST start with a strong action verb (e.g., Built, Engineered, Designed, Implemented, Deployed)
-2. Do NOT use any bold formatting, asterisks (**), or markdown — plain text only
-3. Each bullet MUST include at least ONE quantified metric or technical detail (e.g., "handling 1K+ concurrent users", "processing 10K+ records", "achieving 95% accuracy")
-4. If exact numbers are unknown, use reasonable estimates with "~" or "+"
-5. Each bullet must be a COMPLETE sentence — never truncate or leave sentences unfinished
-6. Highlight technologies used, architecture decisions, and measurable impact
-7. Include relevant ATS keywords naturally (e.g., full-stack, REST API, database design, machine learning, cloud deployment)
+PROJECT BULLET FORMULA:
+- Bullet 1: Built [what] using [specific tech stack] — [scale/metric], [key feature or problem solved]
+- Bullet 2: A specific technical decision, problem you solved, or measurable improvement (use X to Y format)
+
+RULES:
+1. Start each bullet with a different strong verb: Built, Developed, Engineered, Designed, Implemented, Integrated, Automated, Reduced. NEVER repeat the same verb.
+2. Name the EXACT technologies used inside the bullet — "using React.js, Node.js, and PostgreSQL" not just "using modern frameworks".
+3. Every bullet MUST have exactly ONE number:
+   - Volume: processing 1,000+ daily orders
+   - Speed/time saved: reduced from 20 minutes to under 2 minutes
+   - Scale: supporting 100+ restaurants
+   - Percentage change: cutting support queries by ~40%
+4. Max 2 lines per bullet. If it's longer, cut it.
+5. Do NOT use bold, asterisks, or markdown. Plain text only.
+6. Each bullet must be a COMPLETE sentence — never truncate.
+7. HUMAN CHECK: read the bullet out loud. If it sounds like a LinkedIn AI summary, rewrite it. If it could describe anyone's project, make it more specific.
+8. NEVER use these phrases: "leveraging", "robust", "scalable architecture", "cutting-edge", "state-of-the-art", "utilized". Just describe what you actually built.
 ${roleContext}
 
 Project Name: ${name}
 Description: ${description}
 
-Output ONLY the bullet points, one per line. No numbering, no dashes, no bold, no markdown.`
+Output ONLY the 2 bullet points, one per line. No numbering, no dashes, no prefixes.`
 
     try {
         const text = await callGeminiResume(prompt)
@@ -103,20 +119,19 @@ export async function categorizeSkills(skillsList, targetRole = '') {
     const filtered = skillsList.filter(s => !SKILL_BLOCKLIST.includes(s.toLowerCase().trim()));
     if (!filtered.length) return {}
 
-    const roleContext = targetRole ? `\nThe candidate is targeting a ${targetRole} role. Prioritize and suggest additional skills relevant to this role.` : '';
-    const prompt = `You are an expert technical recruiter analyzing a candidate's skills for ATS optimization.
-Categorize the following skills into ONLY these specific categories:
+    const prompt = `Categorize the following skills into these categories:
 - Languages
 - Frameworks
+- Databases
 - Developer Tools
 - Libraries
+- Cloud/DevOps
 
-CRITICAL RULES:
-1. Filter out any items that are NOT real technologies, tools, or skills (e.g., "config", "github-config", ".env", "readme" are NOT valid skills)
-2. Ensure all skills are properly capitalized (e.g., "javascript" → "JavaScript", "react" → "React")
-3. If the candidate has fewer than 3 skills in any category, suggest 1-2 additional commonly paired skills that complement their existing stack
-4. Mark suggested skills by adding "(suggested)" after them so the user can review
-${roleContext}
+RULES:
+1. ONLY use the skills provided below. Do NOT add, suggest, or invent any new skills. Only categorize what is given.
+2. Filter out any items that are NOT real technologies, tools, or skills (e.g., "config", "github-config", ".env", "readme" are NOT valid skills)
+3. Ensure all skills are properly capitalized (e.g., "javascript" → "JavaScript", "react" → "React")
+4. If a category has zero skills from the list, omit that category entirely.
 
 Return the result strictly as a valid JSON object where the keys are the categories above, and the values are lists of strings.
 Do not wrap the JSON in markdown code blocks or add any other text.
@@ -172,35 +187,77 @@ Output ONLY valid JSON. Do not include any markdown wrappers or explanatory text
  */
 export async function generateSummary(data) {
     const targetRole = data.personal?.targetRole || data.targetRole || '';
-    const roleContext = targetRole ? `The candidate is targeting a ${targetRole} role.` : '';
-    const prompt = `You are an expert ATS-optimized resume writer. Write a compelling 2-3 sentence professional summary for a resume based on the following information:
+    const expEntries = (data.experience || []).filter(e => e.company || e.title);
+    const projEntries = (data.projects || []).filter(p => p.name);
+    const eduEntries = (data.education || []).filter(e => e.institution);
+    const skillsList = (data.skills || []).join(', ');
 
-Name: ${data.name || data.personal?.name || 'N/A'}
-Target Role: ${targetRole || 'Software Engineer'}
-Experience: ${(data.experience || []).map(e => `${e.title} at ${e.company}`).join(', ') || 'N/A'}
-Skills: ${(data.skills || []).join(', ') || 'N/A'}
-Education: ${(data.education || []).map(e => `${e.degree} from ${e.institution}`).join(', ') || 'N/A'}
-Projects: ${(data.projects || []).filter(p => p.name).map(p => p.name).join(', ') || 'N/A'}
+    const prompt = `Write a professional summary for a resume. It must sound like a real human — like someone introducing themselves confidently in an interview.
 
-CRITICAL ATS RULES:
-1. The summary MUST be 2-3 COMPLETE sentences. Never truncate or leave a sentence unfinished.
-2. The summary MUST end with a proper period.
-3. Do NOT use bold formatting, asterisks, or markdown — plain text only.
-4. Include 3-5 ATS keywords naturally (e.g., full-stack development, REST APIs, system design, cloud computing, agile methodology, CI/CD, data structures, algorithms).
-5. Mention specific technologies from the skills list.
-6. Focus on years of experience, key strengths, and career objectives.
-${roleContext}
+HARD LENGTH REQUIREMENT:
+- You MUST write 4-5 sentences. NEVER less than 4 sentences.
+- The total output MUST be at least 250 characters long.
+- Each sentence must be complete and end with a period.
+- If your output is shorter than 4 sentences or under 250 characters, you have FAILED. Try again.
 
-Write ONLY the summary paragraph. No introductions, labels, or explanations. Plain text only.`
+THE 5-SENTENCE STRUCTURE:
+- Sentence 1: Job title + years/months of experience + 2-3 specific technologies you work with
+- Sentence 2: Your biggest achievement or what you built — must include a real number (clients, users, projects, revenue, etc.)
+- Sentence 3: Technical depth — mention specific tools, frameworks, or areas you specialise in (APIs, databases, cloud, ML, etc.)
+- Sentence 4: A leadership or impact statement — team size, projects delivered, or scale of work
+- Sentence 5: What you're currently doing + what kind of role you're looking for
+
+You can merge sentences 3-4 into one if it flows naturally, but NEVER go below 4 sentences total.
+
+EXAMPLE OF CORRECT OUTPUT (this is the MINIMUM acceptable length):
+"Full-Stack Developer and Founder with 1+ year of experience building production web applications using React.js, Node.js, and PostgreSQL. Founded Grovia Techworks, a web development agency, delivering 6+ projects for 8+ clients with a 100% on-time delivery rate. Experienced in building REST APIs, integrating payment gateways, and deploying applications with real-time features serving 1,000+ users. Comfortable working across the full stack from database design to frontend UI, with hands-on experience in Python, TensorFlow, and NLP for AI-driven tools. Currently pursuing B.Tech in CSE at Parul University while actively seeking full-stack developer or product engineering roles."
+
+FORMULA:
+[Job title] with [X years/months] of experience building [what] using [tech]. [Achievement with number]. [Technical depth — APIs, databases, deployment, AI]. [Scale/leadership]. Currently [situation] and looking for [role type].
+
+ATS KEYWORD RULE:
+Weave in 4-5 keywords matching the target role naturally — don't list them. For example: "full-stack development", "REST APIs", "database design", "cloud deployment", "agile".
+
+BANNED PHRASES (sound like AI — never use):
+- "Dynamic professional", "Strong foundation", "Seeking to leverage", "Results-driven", "Proven track record", "Seasoned professional", "Dedicated to", "Committed to delivering", "Passionate about", "Experienced in delivering high-quality"
+- Any adjective without a number to back it up
+
+HUMAN TEST: Read it out loud. Does it sound like what you'd actually say in an interview when asked "Tell me about yourself"? If not, rewrite it.
+
+Candidate info:
+- Target Role: ${targetRole || 'Software Engineer'}
+- Experience: ${expEntries.map(e => `${e.title || 'Role'} at ${e.company || 'Company'} (${e.date || ''})`).join('; ') || 'N/A'}
+- Skills: ${skillsList || 'N/A'}
+- Education: ${eduEntries.map(e => `${e.degree} from ${e.institution}`).join('; ') || 'N/A'}
+- Projects built: ${projEntries.map(p => `${p.name}${p.technologies ? ' (' + p.technologies + ')' : ''}`).join(', ') || 'N/A'}
+- Total projects: ${projEntries.length}
+
+Write ONLY the summary paragraph (4-5 sentences, 250+ characters). No labels, no headings, no explanations. Plain text only, no bold or markdown.`
 
     try {
-        let summary = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.7, 256)
-        // Strip any accidental bold formatting
+        let summary = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.7, 512)
         summary = summary.replace(/\*\*/g, '').replace(/\*/g, '')
-        // Ensure it ends with a period
         if (summary && !summary.endsWith('.') && !summary.endsWith('!') && !summary.endsWith('?')) {
             summary += '.'
         }
+
+        // Retry if too short (under 200 chars or fewer than 3 sentences)
+        const sentenceCount = (summary.match(/[.!?]\s/g) || []).length + 1
+        if (summary.length < 200 || sentenceCount < 3) {
+            console.warn('Summary too short (' + summary.length + ' chars, ' + sentenceCount + ' sentences), retrying...')
+            let retry = await callGeminiResume(
+                prompt + '\n\nCRITICAL: Your previous output was WAY too short. Write AT LEAST 4-5 full sentences, minimum 250 characters. Look at the example — match that length.',
+                'gemini-2.5-flash', 0.8, 512
+            )
+            retry = retry.replace(/\*\*/g, '').replace(/\*/g, '')
+            if (retry && !retry.endsWith('.') && !retry.endsWith('!') && !retry.endsWith('?')) {
+                retry += '.'
+            }
+            if (retry.length > summary.length) {
+                summary = retry
+            }
+        }
+
         return summary
     } catch (err) {
         console.error('generateSummary error:', err)
@@ -521,6 +578,44 @@ export async function atsOptimizeResume(resumeData) {
     // 6. Filter non-tech skills
     data.skills = (data.skills || []).filter(s => !SKILL_BLOCKLIST.includes(s.toLowerCase().trim()));
 
+    // 7. Detect and fix truncated bullets (ending mid-sentence without proper punctuation)
+    const isTruncated = (bullet) => {
+        if (!bullet || bullet.length < 20) return false;
+        const trimmed = bullet.trim();
+        // Truncated if ends with: comma, common prepositions, articles, or no sentence-ending punctuation
+        if (/,\s*$/.test(trimmed)) return true;
+        if (/\b(and|the|a|an|for|of|by|to|in|with|using|from|through|across|reducing|improving|automating|integrating|processing|achieving|enabling|supporting|leveraging|delivering|implementing|building|managing|providing|ensuring|maintaining|serving|handling|generating|creating|developing|designing|engineering|deploying|configuring|optimizing)\s*$/i.test(trimmed)) return true;
+        if (!/[.!?)"]\s*$/.test(trimmed) && trimmed.length > 50) return true;
+        return false;
+    };
+
+    // Fix truncated experience bullets
+    for (let i = 0; i < data.experience.length; i++) {
+        const exp = data.experience[i];
+        if (exp.bullets && exp.bullets.some(isTruncated)) {
+            try {
+                const desc = exp.bullets.join('. ') + (exp.description ? '. ' + exp.description : '');
+                const fixedBullets = await enhanceExperience(
+                    `${exp.title || 'Role'} at ${exp.company || 'Company'}: ${desc}`,
+                    targetRole
+                );
+                data.experience[i].bullets = fixedBullets;
+            } catch { /* keep existing */ }
+        }
+    }
+
+    // Fix truncated project bullets
+    for (let i = 0; i < data.projects.length; i++) {
+        const proj = data.projects[i];
+        if (proj.bullets && proj.bullets.some(isTruncated)) {
+            try {
+                const desc = proj.bullets.join('. ') + (proj.description ? '. ' + proj.description : '');
+                const fixedBullets = await enhanceProject(proj.name, desc, targetRole);
+                data.projects[i].bullets = fixedBullets;
+            } catch { /* keep existing */ }
+        }
+    }
+
     return data;
 }
 
@@ -543,12 +638,14 @@ export function calculateATSScore(resumeData) {
 
     // 1. Contact Information (15 points)
     let contactScore = 0;
-    if (p.name) contactScore += 3;
+    if (p.name) contactScore += 2;
     else tips.push('Add your full name');
-    if (p.email) contactScore += 3;
+    if (p.email) contactScore += 2;
     else tips.push('Add your email address');
-    if (p.phone) contactScore += 3;
+    if (p.phone) contactScore += 2;
     else tips.push('Add your phone number');
+    if (p.location) contactScore += 3;
+    else tips.push('Add your location (city, state) — ATS systems filter by region');
     if (p.linkedin && p.linkedin.includes('/')) contactScore += 3;
     else if (p.linkedin && !p.linkedin.includes('/')) { contactScore += 1; tips.push('Use your full LinkedIn URL (e.g., linkedin.com/in/yourname)'); }
     else tips.push('Add your LinkedIn profile URL');

@@ -23,11 +23,11 @@ import './ResumeBuilderPage.css'
 // ═══════════════════════════════════════
 //  EMPTY STATE TEMPLATES
 // ═══════════════════════════════════════
-const emptyPersonal = { name: '', email: '', phone: '', linkedin: '', github: '', targetRole: '' }
+const emptyPersonal = { name: '', email: '', phone: '', location: '', linkedin: '', github: '', targetRole: '' }
 const emptyEducation = { institution: '', degree: '', date: '', gpa: '' }
 const emptyExperience = { company: '', title: '', date: '', location: '', description: '', bullets: [] }
-const emptyProject = { name: '', description: '', technologies: '', link: '', bullets: [] }
-const emptyCertification = { name: '', issuer: '', date: '', link: '' }
+const emptyProject = { name: '', description: '', technologies: '', link: '', liveLink: '', bullets: [] }
+const emptyCertification = { name: '', issuer: '', date: '', link: '', credentialId: '' }
 
 // ═══════════════════════════════════════
 //  STEP DEFINITIONS
@@ -40,6 +40,7 @@ const STEPS = [
     { id: 'skills', label: '🛠️ Skills', icon: '🛠️' },
     { id: 'certifications', label: '📜 Certifications', icon: '📜' },
     { id: 'summary', label: '📝 Summary', icon: '📝' },
+    { id: 'ats_score', label: '📊 ATS Score', icon: '📊' },
 ]
 
 // ═══════════════════════════════════════
@@ -97,6 +98,7 @@ const ResumePreview = ({ data }) => {
             {/* Header */}
             {personal.name && <h1 className="rb-resume-name">{personal.name}</h1>}
             <div className="rb-resume-contact">
+                {personal.location && <span>{personal.location}</span>}
                 {personal.phone && <span>{personal.phone}</span>}
                 {personal.email && <span><a href={`mailto:${personal.email}`}>{personal.email}</a></span>}
                 {personal.linkedin && <span><a href={personal.linkedin.startsWith('http') ? personal.linkedin : `https://${personal.linkedin}`} target="_blank" rel="noreferrer">{displayUrl(personal.linkedin)}</a></span>}
@@ -111,6 +113,7 @@ const ResumePreview = ({ data }) => {
                 </>
             )}
 
+
             {/* Education */}
             {education.length > 0 && education.some(e => e.institution) && (
                 <>
@@ -123,7 +126,7 @@ const ResumePreview = ({ data }) => {
                             </div>
                             <div className="rb-resume-item-sub">
                                 <span>{edu.degree}</span>
-                                {edu.gpa && <span>GPA: {edu.gpa}</span>}
+                                {edu.gpa && <span>GPA: {edu.gpa.includes('/') ? edu.gpa : `${edu.gpa}/10`}</span>}
                             </div>
                         </div>
                     ))}
@@ -165,6 +168,7 @@ const ResumePreview = ({ data }) => {
                                     {proj.name}
                                     {proj.technologies && <span style={{ fontWeight: 400 }}> | {proj.technologies}</span>}
                                     {proj.link && <span style={{ fontWeight: 400, fontSize: '9pt' }}> | <a href={proj.link} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{displayUrl(proj.link)}</a></span>}
+                                    {proj.liveLink && <span style={{ fontWeight: 400, fontSize: '9pt' }}> | <a href={proj.liveLink} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>Live Demo</a></span>}
                                 </span>
                             </div>
                             {proj.bullets && proj.bullets.length > 0 ? (
@@ -203,6 +207,7 @@ const ResumePreview = ({ data }) => {
                             <div className="rb-resume-item-header">
                                 <span className="rb-resume-item-name">
                                     {cert.name}
+                                    {cert.credentialId && <span style={{ fontWeight: 400, fontSize: '9pt' }}> — ID: {cert.credentialId}</span>}
                                     {cert.link && <span style={{ fontWeight: 400, fontSize: '9pt' }}> — <a href={cert.link} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>Verify</a></span>}
                                 </span>
                                 <span className="rb-resume-item-date">{cert.date}</span>
@@ -409,6 +414,10 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                 <input placeholder="+1 234 567 890" value={data.personal.phone} onChange={e => updatePersonal('phone', e.target.value)} />
                             </div>
                         </div>
+                        <div className="rb-field">
+                            <label>📍 Location <span style={{ color: '#63636E', fontWeight: 400 }}>(ATS filters by city/region)</span></label>
+                            <input placeholder="e.g., Vadodara, Gujarat, India" value={data.personal.location || ''} onChange={e => updatePersonal('location', e.target.value)} />
+                        </div>
                         <div className="rb-field-row">
                             <div className="rb-field">
                                 <label>LinkedIn URL</label>
@@ -562,9 +571,15 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                         <input placeholder="React, Node.js, Python" value={proj.technologies} onChange={e => updateProject(i, 'technologies', e.target.value)} />
                                     </div>
                                 </div>
-                                <div className="rb-field">
-                                    <label>Link (optional)</label>
-                                    <input placeholder="https://github.com/..." value={proj.link} onChange={e => updateProject(i, 'link', e.target.value)} />
+                                <div className="rb-field-row">
+                                    <div className="rb-field">
+                                        <label>GitHub / Repo Link</label>
+                                        <input placeholder="https://github.com/..." value={proj.link} onChange={e => updateProject(i, 'link', e.target.value)} />
+                                    </div>
+                                    <div className="rb-field">
+                                        <label>Live Demo URL <span style={{ color: '#63636E', fontWeight: 400 }}>(boosts ATS)</span></label>
+                                        <input placeholder="https://myapp.vercel.app" value={proj.liveLink || ''} onChange={e => updateProject(i, 'liveLink', e.target.value)} />
+                                    </div>
                                 </div>
                                 <div className="rb-field">
                                     <label>Description <span style={{ color: '#63636E', fontWeight: 400 }}>(leave blank to auto-generate)</span></label>
@@ -636,9 +651,13 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                         <input placeholder="Jan 2024" value={cert.date} onChange={e => updateCertification(i, 'date', e.target.value)} />
                                     </div>
                                     <div className="rb-field">
-                                        <label>Verification Link (optional)</label>
-                                        <input placeholder="https://..." value={cert.link} onChange={e => updateCertification(i, 'link', e.target.value)} />
+                                        <label>Credential ID <span style={{ color: '#63636E', fontWeight: 400 }}>(if available)</span></label>
+                                        <input placeholder="ABC-123-XYZ" value={cert.credentialId || ''} onChange={e => updateCertification(i, 'credentialId', e.target.value)} />
                                     </div>
+                                </div>
+                                <div className="rb-field">
+                                    <label>Verification Link (optional)</label>
+                                    <input placeholder="https://..." value={cert.link} onChange={e => updateCertification(i, 'link', e.target.value)} />
                                 </div>
                             </div>
                         ))}
@@ -673,6 +692,86 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                     </div>
                 )
 
+            case 7: { // ATS Score
+                const atsResult = calculateATSScore(data)
+                const atsScore = atsResult.score
+                const atsColor = atsScore >= 80 ? '#22C55E' : atsScore >= 50 ? '#F59E0B' : '#EF4444'
+                const atsGrade = atsScore >= 90 ? 'A+' : atsScore >= 80 ? 'A' : atsScore >= 70 ? 'B+' : atsScore >= 60 ? 'B' : atsScore >= 50 ? 'C' : atsScore >= 40 ? 'D' : 'F'
+                const atsMessage = atsScore >= 80 ? 'Excellent! Your resume is ATS-ready.' : atsScore >= 60 ? 'Good progress — a few tweaks will make it stand out.' : atsScore >= 40 ? 'Needs work. Follow the tips below to improve.' : 'Your resume needs significant improvements.'
+
+                const breakdownItems = [
+                    { label: 'Contact Info', key: 'contact', max: 15, icon: '📇' },
+                    { label: 'Summary', key: 'summary', max: 15, icon: '📝' },
+                    { label: 'Experience', key: 'experience', max: 20, icon: '💼' },
+                    { label: 'Projects', key: 'projects', max: 15, icon: '💻' },
+                    { label: 'Skills', key: 'skills', max: 15, icon: '🛠️' },
+                    { label: 'Education', key: 'education', max: 10, icon: '🎓' },
+                    { label: 'Certifications', key: 'certifications', max: 5, icon: '📜' },
+                    { label: 'Target Role', key: 'targetRole', max: 5, icon: '🎯' },
+                ]
+
+                return (
+                    <div className="rb-form-section">
+                        <h3>📊 ATS Score Analysis</h3>
+
+                        {/* Big Score Circle */}
+                        <div className="rb-ats-final">
+                            <div className="rb-ats-final-circle" style={{ '--ats-color': atsColor, '--ats-progress': `${atsScore * 3.6}deg` }}>
+                                <div className="rb-ats-final-inner">
+                                    <span className="rb-ats-final-score" style={{ color: atsColor }}>{atsScore}</span>
+                                    <span className="rb-ats-final-grade" style={{ color: atsColor }}>{atsGrade}</span>
+                                </div>
+                            </div>
+                            <p className="rb-ats-final-message" style={{ color: atsColor }}>{atsMessage}</p>
+                        </div>
+
+                        {/* Breakdown Bars */}
+                        <div className="rb-ats-breakdown">
+                            <h4>Score Breakdown</h4>
+                            {breakdownItems.map(item => {
+                                const val = atsResult.breakdown[item.key] || 0
+                                const pct = Math.round((val / item.max) * 100)
+                                const barColor = pct >= 80 ? '#22C55E' : pct >= 50 ? '#F59E0B' : '#EF4444'
+                                return (
+                                    <div key={item.key} className="rb-ats-bar-row">
+                                        <div className="rb-ats-bar-label">
+                                            <span>{item.icon} {item.label}</span>
+                                            <span style={{ color: barColor, fontWeight: 600 }}>{val}/{item.max}</span>
+                                        </div>
+                                        <div className="rb-ats-bar-track">
+                                            <div className="rb-ats-bar-fill" style={{ width: `${pct}%`, background: barColor }} />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {/* Tips */}
+                        {atsResult.tips.length > 0 && (
+                            <div className="rb-ats-tips-section">
+                                <h4>💡 Improvement Tips</h4>
+                                {atsResult.tips.map((tip, i) => (
+                                    <div key={i} className="rb-ats-tip-card">
+                                        <span className="rb-ats-tip-num">{i + 1}</span>
+                                        <span>{tip}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {atsScore >= 80 && (
+                            <div className="rb-ats-congrats">
+                                <span style={{ fontSize: '1.5rem' }}>🎉</span>
+                                <div>
+                                    <strong style={{ color: '#22C55E' }}>Great job!</strong>
+                                    <p>Your resume is well-optimized for ATS systems. Download it now!</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+
             default:
                 return null
         }
@@ -704,7 +803,7 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                     )}
                     {step < STEPS.length - 1 ? (
                         <button className="rb-btn rb-btn-primary" onClick={() => setStep(step + 1)}>
-                            Next →
+                            {step === 6 ? '📊 View ATS Score →' : 'Next →'}
                         </button>
                     ) : (
                         <button className="rb-btn rb-btn-accent" onClick={onDownload} disabled={downloading}>
@@ -1090,11 +1189,6 @@ export default function ResumeBuilderPage() {
         setIsDownloading(false)
     }
 
-    // Real-time ATS score
-    const atsResult = calculateATSScore(resumeData)
-    const atsScore = atsResult.score
-    const atsColor = atsScore >= 80 ? '#22C55E' : atsScore >= 50 ? '#F59E0B' : '#EF4444'
-
     return (
         <div className="rb-page">
             {/* Navbar */}
@@ -1196,30 +1290,6 @@ export default function ResumeBuilderPage() {
                                         <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={handleDownloadPdf} disabled={isDownloading}>
                                             {isDownloading ? '⏳ Optimizing...' : '📥 PDF (-20c)'}
                                         </button>
-                                    </div>
-                                </div>
-
-                                {/* ATS Score Gauge */}
-                                <div className="rb-ats-gauge">
-                                    <div className="rb-ats-gauge-circle" style={{ '--ats-color': atsColor, '--ats-progress': `${atsScore * 3.6}deg` }}>
-                                        <div className="rb-ats-gauge-inner">
-                                            <span className="rb-ats-score" style={{ color: atsColor }}>{atsScore}</span>
-                                            <span className="rb-ats-label">ATS Score</span>
-                                        </div>
-                                    </div>
-                                    <div className="rb-ats-tips">
-                                        {atsResult.tips.slice(0, 4).map((tip, i) => (
-                                            <div key={i} className="rb-ats-tip">
-                                                <span className="rb-ats-tip-icon">💡</span>
-                                                <span>{tip}</span>
-                                            </div>
-                                        ))}
-                                        {atsScore >= 80 && (
-                                            <div className="rb-ats-tip" style={{ color: '#22C55E' }}>
-                                                <span className="rb-ats-tip-icon">✅</span>
-                                                <span>Great job! Your resume is ATS-optimized.</span>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 

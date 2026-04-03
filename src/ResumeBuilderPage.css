@@ -628,6 +628,16 @@
     color: #000;
 }
 
+.rb-resume-competencies {
+    font-size: 10pt;
+    font-family: "Source Sans Pro", Arial, sans-serif;
+    text-align: center;
+    color: #000;
+    margin-top: 2px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
 .rb-resume-empty {
     text-align: center;
     padding: 3rem 2rem;
@@ -905,6 +915,214 @@
     margin-top: 1px;
 }
 
+/* ── ATS Score Final Step ── */
+.rb-ats-final {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem 1rem 1.5rem;
+    animation: rbFadeIn 0.5s ease;
+}
+
+.rb-ats-final-circle {
+    width: 120px;
+    height: 120px;
+    min-width: 120px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--ats-color) 0deg,
+        var(--ats-color) var(--ats-progress),
+        #1C1C22 var(--ats-progress),
+        #1C1C22 360deg
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.6s ease;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.3), 0 0 60px color-mix(in srgb, var(--ats-color) 15%, transparent);
+    animation: rbScoreReveal 0.8s ease-out;
+}
+
+@keyframes rbScoreReveal {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.rb-ats-final-inner {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #0D0D0F;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.rb-ats-final-score {
+    font-size: 2.25rem;
+    font-weight: 700;
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1;
+    transition: color 0.3s;
+}
+
+.rb-ats-final-grade {
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+    transition: color 0.3s;
+}
+
+.rb-ats-final-message {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-align: center;
+    transition: color 0.3s;
+}
+
+/* Breakdown Section */
+.rb-ats-breakdown {
+    background: #0D0D0F;
+    border: 1px solid #1C1C22;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.rb-ats-breakdown h4 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #EDEDEF;
+    margin-bottom: 1rem;
+    letter-spacing: 0.025em;
+}
+
+.rb-ats-bar-row {
+    margin-bottom: 0.75rem;
+}
+
+.rb-ats-bar-row:last-child {
+    margin-bottom: 0;
+}
+
+.rb-ats-bar-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #A1A1A9;
+    margin-bottom: 0.375rem;
+}
+
+.rb-ats-bar-track {
+    height: 6px;
+    background: #1C1C22;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rb-ats-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: rbBarGrow 0.8s ease-out forwards;
+}
+
+@keyframes rbBarGrow {
+    from { width: 0 !important; }
+}
+
+/* Tips Section */
+.rb-ats-tips-section {
+    background: #0D0D0F;
+    border: 1px solid #1C1C22;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.rb-ats-tips-section h4 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #EDEDEF;
+    margin-bottom: 0.875rem;
+    letter-spacing: 0.025em;
+}
+
+.rb-ats-tip-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    background: rgba(245, 158, 11, 0.04);
+    border: 1px solid rgba(245, 158, 11, 0.1);
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    color: #A1A1A9;
+    line-height: 1.5;
+    animation: rbFadeIn 0.3s ease;
+    animation-fill-mode: both;
+}
+
+.rb-ats-tip-card:nth-child(2) { animation-delay: 0.05s; }
+.rb-ats-tip-card:nth-child(3) { animation-delay: 0.1s; }
+.rb-ats-tip-card:nth-child(4) { animation-delay: 0.15s; }
+.rb-ats-tip-card:nth-child(5) { animation-delay: 0.2s; }
+.rb-ats-tip-card:nth-child(6) { animation-delay: 0.25s; }
+.rb-ats-tip-card:nth-child(7) { animation-delay: 0.3s; }
+.rb-ats-tip-card:nth-child(8) { animation-delay: 0.35s; }
+.rb-ats-tip-card:nth-child(9) { animation-delay: 0.4s; }
+
+.rb-ats-tip-card:last-child {
+    margin-bottom: 0;
+}
+
+.rb-ats-tip-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* Congrats Card */
+.rb-ats-congrats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(34, 197, 94, 0.06);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 0.75rem;
+    margin-bottom: 0.5rem;
+    animation: rbFadeIn 0.5s ease 0.3s both;
+}
+
+.rb-ats-congrats strong {
+    display: block;
+    font-size: 0.9375rem;
+    margin-bottom: 0.25rem;
+}
+
+.rb-ats-congrats p {
+    font-size: 0.8125rem;
+    color: #A1A1A9;
+    line-height: 1.4;
+}
+
 /* ── Print Styles ── */
 @media print {
     /* Hide the watermark when printing/saving to PDF */
@@ -918,7 +1136,11 @@
     .rb-form-panel,
     .rb-preview-header,
     .rb-preview-actions,
-    .rb-ats-gauge {
+    .rb-ats-gauge,
+    .rb-ats-final,
+    .rb-ats-breakdown,
+    .rb-ats-tips-section,
+    .rb-ats-congrats {
         display: none !important;
     }
 

@@ -226,38 +226,95 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    {/* Wallet Balance */}
-                    <div className="bg-[#111113] border border-[#1C1C22] rounded-lg p-6 flex flex-col justify-between col-span-1 md:col-span-2 hover:border-[#27272F] transition-colors">
-                        <div>
-                            <p className="text-xs uppercase tracking-wider text-[#63636E] font-mono mb-4">Wallet Balance</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-5xl font-mono font-semibold text-[#EDEDEF] tracking-tight">{wallet.credits}</span>
-                                <span className="text-sm text-[#A1A1A9]">credits</span>
+                {/* Credit Usage Card – Watermelon-inspired */}
+                <div className="bg-[#111113] border border-[#1C1C22] rounded-xl mb-12 overflow-hidden hover:border-[#27272F] transition-colors">
+                    {/* Top Section */}
+                    <div className="p-6 pb-4">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <p className="text-[10px] uppercase tracking-[0.15em] text-[#63636E] font-mono mb-2">Credits Used</p>
+                                <span className="text-4xl font-mono font-semibold text-[#EDEDEF] tracking-tight">
+                                    {totalPurchased > 0 ? ((totalUsed / totalPurchased) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-[0.15em] text-[#63636E] font-mono mb-1">Balance</p>
+                                <span className="text-2xl font-mono font-semibold text-[#EDEDEF]">{wallet.credits}</span>
+                                <span className="text-xs text-[#63636E] ml-1">credits</span>
                             </div>
                         </div>
-                        <p className="text-xs text-[#63636E] mt-6 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></span>
-                            Each InternBot search uses 2 credits
-                        </p>
+
+                        {/* Segmented Progress Bar */}
+                        <div className="flex gap-[2px] mb-2" style={{ height: '18px' }}>
+                            {Array.from({ length: 40 }, (_, i) => {
+                                const usedPercent = totalPurchased > 0 ? (totalUsed / totalPurchased) : 0;
+                                const segmentThreshold = (i + 1) / 40;
+                                const isFilled = segmentThreshold <= usedPercent;
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            flex: 1,
+                                            borderRadius: '2px',
+                                            background: isFilled ? '#F97316' : '#1C1C22',
+                                            transition: 'background 0.3s ease',
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                        <div className="flex justify-between text-[10px] font-mono text-[#63636E] uppercase tracking-wider">
+                            <span>{totalUsed} / {totalPurchased} Credits</span>
+                            <span>{wallet.credits} remaining</span>
+                        </div>
                     </div>
 
-                    {/* Usage Summary */}
-                    <div className="bg-[#111113] border border-[#1C1C22] rounded-lg p-6 flex flex-col justify-between hover:border-[#27272F] transition-colors">
-                        <p className="text-xs uppercase tracking-wider text-[#63636E] font-mono mb-4">Usage Stats</p>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-[#A1A1A9]">Purchased</span>
-                                <span className="font-mono text-[#22C55E] text-sm">+{totalPurchased}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-[#A1A1A9]">Used</span>
-                                <span className="font-mono text-[#EF4444] text-sm">−{totalUsed}</span>
-                            </div>
-                            <div className="pt-4 border-t border-[#1C1C22] flex items-center justify-between">
-                                <span className="text-sm font-medium text-[#EDEDEF]">Remaining</span>
-                                <span className="font-mono font-medium text-[#3B82F6] text-sm">{wallet.credits}</span>
-                            </div>
+                    {/* Dashed Divider */}
+                    <div className="border-t border-dashed border-[#27272F]" />
+
+                    {/* Usage History (Inline Mini Table) */}
+                    <div className="p-6 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-medium text-[#EDEDEF]">Usage History</p>
+                            <span className="text-[10px] font-mono text-[#63636E] uppercase tracking-wider bg-[#1A1A1F] border border-[#27272F] px-2 py-0.5 rounded">Recent</span>
+                        </div>
+                        {wallet.transactions.length === 0 ? (
+                            <p className="text-xs text-[#63636E] text-center py-4">No transactions yet</p>
+                        ) : (
+                            <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: '0 2px' }}>
+                                <thead>
+                                    <tr>
+                                        <th className="text-[10px] font-mono uppercase tracking-wider text-[#63636E] pb-2">Date</th>
+                                        <th className="text-[10px] font-mono uppercase tracking-wider text-[#63636E] pb-2">Action</th>
+                                        <th className="text-[10px] font-mono uppercase tracking-wider text-[#63636E] pb-2 text-right">Credits</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {wallet.transactions.slice(0, 5).map((txn, i) => (
+                                        <tr key={i} className="group">
+                                            <td className="py-1.5 text-xs font-mono text-[#A1A1A9]">
+                                                {new Date(txn.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })},&nbsp;
+                                                {new Date(txn.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            </td>
+                                            <td className="py-1.5 text-xs text-[#A1A1A9]">{txn.description || txn.tool_name}</td>
+                                            <td className={`py-1.5 text-xs font-mono font-medium text-right ${txn.type === 'purchase' ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
+                                                {txn.type === 'purchase' ? '+' : '−'}{txn.amount}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="border-t border-dashed border-[#27272F] px-6 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-[#63636E] uppercase tracking-wider">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+                            Billing via Razorpay
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-mono text-[#63636E]">1 credit = ₹1</span>
                         </div>
                     </div>
                 </div>

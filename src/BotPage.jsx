@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { supabase as _sb } from './supabase'
 import ProfileDropdown from './components/ui/ProfileDropdown'
 import AuthModal from './components/ui/AuthModal'
+import AiChatInput, { ChatMessages } from './components/ui/AiChatInput'
 
 const BotPage = () => {
     const navigate = useNavigate()
@@ -32,7 +33,6 @@ const BotPage = () => {
     const [history, setHistory] = useState([])
     const [showInternBot, setShowInternBot] = useState(false)
     const [walletCredits, setWalletCredits] = useState(0)
-    const chatEndRef = useRef(null)
     const inputRef = useRef(null)
     const initialSent = useRef(false)
 
@@ -141,10 +141,6 @@ const BotPage = () => {
         }
     }, [messages])
 
-    // Auto-scroll to bottom
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages, isTyping])
 
     // Handle query param on mount
     useEffect(() => {
@@ -186,13 +182,6 @@ const BotPage = () => {
         } finally {
             setIsTyping(false)
             inputRef.current?.focus()
-        }
-    }
-
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSend()
         }
     }
 
@@ -299,10 +288,11 @@ const BotPage = () => {
                     </div>
                 </div>
 
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto">
-                    {messages.length === 0 ? (
-                        /* ═══ EMPTY STATE / GREETING ═══ */
+                {/* Chat Messages — Premium animated UI */}
+                <ChatMessages
+                    messages={messages}
+                    isTyping={isTyping}
+                    emptyState={
                         <div className="flex flex-col items-center justify-center h-full px-6">
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1A1A1F] to-[#222228] border border-[#27272F] flex items-center justify-center mb-6">
                                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -332,47 +322,8 @@ const BotPage = () => {
                                 ))}
                             </div>
                         </div>
-                    ) : (
-                        /* ═══ MESSAGES ═══ */
-                        <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`flex gap-2 sm:gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                    {msg.role === 'ai' && (
-                                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-[#111113] border border-[#1C1C22] flex items-center justify-center shrink-0 mt-0.5">
-                                            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                        </div>
-                                    )}
-                                    <div className={`max-w-[85%] sm:max-w-[75%] ${msg.role === 'user' ? '' : ''}`}>
-                                        <div className={`px-4 py-3 rounded-lg text-sm leading-relaxed ${msg.role === 'user'
-                                            ? 'bg-[#EDEDEF] text-[#09090B]'
-                                            : 'bg-[#111113] border border-[#1C1C22] text-[#EDEDEF]'
-                                            }`}>
-                                            {msg.content}
-                                        </div>
-                                        <span className="text-[10px] text-[#3A3A44] mt-1 px-1 block">
-                                            {msg.role === 'ai' ? 'SnapAI' : 'You'} · {msg.time}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                            {isTyping && (
-                                <div className="flex gap-3">
-                                    <div className="w-7 h-7 rounded-md bg-[#111113] border border-[#1C1C22] flex items-center justify-center shrink-0 mt-0.5">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                    </div>
-                                    <div className="bg-[#111113] border border-[#1C1C22] px-4 py-3 rounded-lg">
-                                        <div className="flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-pulse"></span>
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-pulse" style={{ animationDelay: '0.2s' }}></span>
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-pulse" style={{ animationDelay: '0.4s' }}></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
-                    )}
-                </div>
+                    }
+                />
 
                 {/* InternBot iframe overlay */}
                 {showInternBot && (
@@ -391,38 +342,21 @@ const BotPage = () => {
                     </div>
                 )}
 
-                {/* Input Bar */}
-                <div className="border-t border-[#1C1C22] bg-[#09090B] px-3 sm:px-4 py-3 sm:py-4 shrink-0">
-                    <div className="max-w-3xl mx-auto">
-                        <form onSubmit={(e) => { e.preventDefault(); handleSend() }} className="flex items-center gap-2 bg-[#111113] border border-[#1C1C22] rounded-lg px-3 sm:px-4 py-2 sm:py-3 focus-within:border-[#3B82F6] transition-colors">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#3A3A44] shrink-0 hidden sm:block"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                            <input
-                                ref={inputRef}
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Message SnapAI..."
-                                className="flex-1 bg-transparent text-sm text-[#EDEDEF] placeholder-[#3A3A44] outline-none min-w-0"
-                                autoComplete="off"
-                                autoFocus
-                            />
-                            <button type="submit" disabled={!input.trim() || isTyping} className="w-8 h-8 sm:w-8 sm:h-8 rounded-md flex items-center justify-center bg-[#3B82F6] text-white hover:bg-[#2563EB] transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                            </button>
-                        </form>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 px-1">
-                            {[
-                                { icon: '✦', label: 'Reasoning' },
-                                { icon: '◈', label: 'Explore Tools' },
-                                { icon: '⬡', label: 'Deep Research' },
-                            ].map((chip, i) => (
-                                <button key={i} className="text-[10px] sm:text-[11px] text-[#3A3A44] hover:text-[#A1A1A9] transition-colors flex items-center gap-1 font-mono">
-                                    <span>{chip.icon}</span> {chip.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                {/* ═══ Premium AI Input Bar ═══ */}
+                <AiChatInput
+                    ref={inputRef}
+                    value={input}
+                    onChange={setInput}
+                    onSend={() => handleSend()}
+                    placeholder="Message SnapAI..."
+                    disabled={isTyping}
+                    isSending={isTyping}
+                    quickActions={[
+                        { icon: '✦', label: 'Reasoning' },
+                        { icon: '◈', label: 'Explore Tools' },
+                        { icon: '⬡', label: 'Deep Research' },
+                    ]}
+                />
             </main>
             <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </div>

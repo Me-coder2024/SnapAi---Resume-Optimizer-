@@ -164,25 +164,24 @@ const TypingInput = ({ onSubmit }) => {
     }, [isFocused, value])
 
     return (
-        <form onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSubmit(value.trim()) }} className="flex items-center gap-2 bg-[#111113] border border-[#27272F] rounded-lg px-4 py-3 hover:border-[#33333D] transition-colors group focus-within:border-[#3B82F6]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#3A3A44] shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <form onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSubmit(value.trim()) }} className="flex items-center overflow-hidden rounded-full border border-[#333] bg-[#1a1a1a] px-5 py-3 pr-3 hover:border-[#444] transition-all duration-300 focus-within:border-[#555]" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
             <div className="flex-1 relative">
                 <input
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => { if (!value) setIsFocused(false) }}
-                    className="w-full bg-transparent text-sm text-[#EDEDEF] outline-none"
+                    className="w-full bg-transparent text-[16px] font-semibold text-[#EDEDEF] outline-none"
                     autoComplete="off"
                 />
                 {!value && (
-                    <span className="absolute inset-0 flex items-center text-sm text-[#3A3A44] pointer-events-none select-none">
-                        {placeholder}<span className="inline-block w-[2px] h-4 bg-[#3B82F6] ml-[1px] animate-pulse" style={{ animationDuration: '0.8s' }} />
+                    <span className="absolute inset-0 flex items-center text-[16px] text-[#555] pointer-events-none select-none font-semibold">
+                        {placeholder}<span className="inline-block w-[2px] h-5 bg-[#3B82F6] ml-[1px] animate-pulse" style={{ animationDuration: '0.8s' }} />
                     </span>
                 )}
             </div>
-            <button type="submit" className="w-8 h-8 rounded-md flex items-center justify-center bg-[#3B82F6] text-white hover:bg-[#2563EB] transition-colors shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            <button type="submit" className={`ml-3 flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 shrink-0 ${value.trim() ? 'bg-white text-[#09090B] shadow-sm active:scale-90' : 'bg-[#222] text-[#555]'}`}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
             </button>
         </form>
     )
@@ -234,7 +233,8 @@ const Chatbot = ({ user, onLoginRequired }) => {
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [showInternModal, setShowInternModal] = useState(false)
-    const chatEndRef = useRef(null)
+    const chatInputRef = useRef(null)
+    const chatScrollRef = useRef(null)
 
     // Build InternBot iframe URL with user params + API key
     const rapidApiKey = import.meta.env.VITE_RAPIDAPI_KEY || ''
@@ -252,13 +252,12 @@ const Chatbot = ({ user, onLoginRequired }) => {
         setShowInternModal(true)
     }
 
-    const scrollToBottom = () => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }
-
+    // Auto-scroll chat
     useEffect(() => {
-        scrollToBottom()
-    }, [messages])
+        if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' })
+        }
+    }, [messages, isTyping])
 
     const handleSend = async (text = input) => {
         if (!text.trim()) return
@@ -295,57 +294,96 @@ const Chatbot = ({ user, onLoginRequired }) => {
             setMessages(prev => [...prev, { role: 'ai', content: errorMsg, time: timeStr }])
         } finally {
             setIsTyping(false)
+            chatInputRef.current?.focus()
         }
     }
 
     return (
         <div className="fixed bottom-6 right-6 z-50">
             {isOpen && (
-                <div className="absolute bottom-16 right-0 w-[380px] h-[520px] bg-[#111113] border border-[#1C1C22] rounded-lg overflow-hidden flex flex-col animate-slide-up shadow-elevated">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#1C1C22] bg-[#1A1A1F]">
-                        <button className="w-8 h-8 rounded-md flex items-center justify-center text-[#63636E] hover:text-[#EDEDEF] hover:bg-[#111113] transition-colors" onClick={() => setIsOpen(false)}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <div className="absolute bottom-16 right-0 w-[380px] h-[520px] bg-[#0A0A0C] border border-[#1C1C22] rounded-2xl overflow-hidden flex flex-col animate-slide-up shadow-elevated">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#1C1C22] bg-[#111113]">
+                        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#63636E] hover:text-[#EDEDEF] hover:bg-[#1A1A1F] transition-colors" onClick={() => setIsOpen(false)}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                         </button>
                         <div className="text-center">
-                            <h4 className="text-sm font-medium text-[#EDEDEF]">SnapAI Assistant</h4>
-                            <span className="text-[10px] text-[#22C55E] flex items-center justify-center gap-1"><span className="w-1 h-1 rounded-full bg-[#22C55E]"></span>Online</span>
+                            <h4 className="text-sm font-semibold text-[#EDEDEF]">SnapAI Assistant</h4>
+                            <span className="text-[10px] text-[#22C55E] flex items-center justify-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>Online</span>
                         </div>
                         <div className="w-8"></div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+                    {/* Messages — Premium animated */}
+                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#27272F #111113' }}>
                         {messages.map((msg, i) => (
-                            <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                <div className={`max-w-[85%] py-2 px-3 rounded-md text-sm ${msg.role === 'user' ? 'bg-[#EDEDEF] text-[#09090B] font-medium' : 'bg-[#1A1A1F] border border-[#27272F] text-[#EDEDEF]'}`}>
-                                    {msg.content}
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
+                                {msg.role === 'ai' && (
+                                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#3B82F6]/20 to-[#8B5CF6]/20 border border-[#3B82F6]/20 flex items-center justify-center shrink-0 mt-0.5">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    </div>
+                                )}
+                                <div className="flex flex-col" style={{ maxWidth: '80%' }}>
+                                    <div className={`py-2.5 px-3.5 text-[13px] leading-relaxed ${
+                                        msg.role === 'user'
+                                            ? 'bg-[#EDEDEF] text-[#09090B] font-medium rounded-2xl rounded-br-sm'
+                                            : 'bg-[#111113] border border-[#1C1C22] text-[#EDEDEF] rounded-2xl rounded-bl-sm'
+                                    }`}>
+                                        {msg.content}
+                                    </div>
+                                    <span className={`text-[9px] text-[#3A3A44] mt-1 px-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                                        {msg.role === 'ai' ? 'SnapAI' : 'You'} · {msg.time}
+                                    </span>
                                 </div>
-                                <span className="text-[10px] text-[#63636E] mt-1 px-1">
-                                    {msg.role === 'ai' ? 'SnapAI' : 'You'} · {msg.time}
-                                </span>
                             </div>
                         ))}
                         {isTyping && (
-                            <div className="flex flex-col items-start">
-                                <div className="bg-[#1A1A1F] border border-[#27272F] text-[#A1A1A9] py-2 px-3 rounded-md text-sm italic">Thinking...</div>
+                            <div className="flex items-start gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#3B82F6]/20 to-[#8B5CF6]/20 border border-[#3B82F6]/20 flex items-center justify-center shrink-0">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                </div>
+                                <div className="bg-[#111113] border border-[#1C1C22] py-3 px-4 rounded-2xl rounded-bl-sm">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6] animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                    </div>
+                                </div>
                             </div>
                         )}
-                        <div ref={chatEndRef} />
                     </div>
-                    <div className="flex items-center gap-1 px-3 py-2 border-t border-[#1C1C22] bg-[#1A1A1F]">
-                        <button onClick={openInternBot} className="text-xs font-mono text-[#A1A1A9] bg-[#111113] border border-[#27272F] px-2 py-1 rounded-md hover:text-[#EDEDEF] hover:border-[#33333D] transition-colors shrink-0">InternBot</button>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-3 border-t border-[#1C1C22]">
-                        <input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                            placeholder="Type your message..."
-                            className="flex-1 bg-[#09090B] border border-[#27272F] rounded-md px-3 py-2 text-sm text-[#EDEDEF] placeholder-[#3A3A44] focus:border-[#3B82F6] outline-none transition-all"
-                        />
-                        <button onClick={() => handleSend()} className="w-9 h-9 rounded-md flex items-center justify-center text-[#63636E] hover:text-[#EDEDEF] hover:bg-[#111113] transition-colors shrink-0">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
+
+                    {/* Quick tools strip */}
+                    <div className="flex items-center gap-1.5 px-3 py-2 border-t border-[#1C1C22] bg-[#0A0A0C]">
+                        <button onClick={openInternBot} className="text-[10px] font-mono text-[#A1A1A9] bg-[#111113] border border-[#1C1C22] px-2.5 py-1 rounded-lg hover:text-[#EDEDEF] hover:border-[#27272F] transition-colors shrink-0 flex items-center gap-1">
+                            <span>🔍</span> InternBot
                         </button>
+                    </div>
+
+                    {/* Premium pill input */}
+                    <div className="px-3 py-3 bg-[#0A0A0C]">
+                        <div className="flex items-center overflow-hidden rounded-full border border-[#27272F] bg-[#111113] px-4 py-1.5 transition-all duration-300 focus-within:border-[#3B82F6]/50" style={{ boxShadow: isTyping ? '0 0 16px rgba(59,130,246,0.1)' : '0 4px 12px rgba(0,0,0,0.2)' }}>
+                            <input
+                                ref={chatInputRef}
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                placeholder="Message SnapAI..."
+                                className="flex-1 bg-transparent text-[13px] font-semibold text-[#EDEDEF] placeholder-[#3A3A44] outline-none py-1.5 min-w-0"
+                                autoComplete="off"
+                            />
+                            <button
+                                onClick={() => handleSend()}
+                                disabled={!input.trim() || isTyping}
+                                className={`ml-2 flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 shrink-0 ${
+                                    input.trim() && !isTyping
+                                        ? 'bg-[#EDEDEF] text-[#09090B] active:scale-90 hover:bg-white'
+                                        : 'bg-[#1A1A1F] text-[#3A3A44] cursor-not-allowed'
+                                }`}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -361,7 +399,7 @@ const Chatbot = ({ user, onLoginRequired }) => {
                 </div>
             )}
 
-            <button className="w-12 h-12 rounded-lg bg-[#111113] border border-[#1C1C22] text-[#A1A1A9] hover:border-[#27272F] hover:text-[#EDEDEF] transition-colors flex items-center justify-center shadow-card" onClick={() => setIsOpen(!isOpen)}>
+            <button className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#111113] to-[#1A1A1F] border border-[#1C1C22] text-[#A1A1A9] hover:border-[#3B82F6]/30 hover:text-[#EDEDEF] transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]" onClick={() => setIsOpen(!isOpen)}>
                 {isOpen ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 ) : (

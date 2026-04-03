@@ -24,3 +24,11 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Temp / test / debug files
+tmp_*
+test_*
+*.tmp
+diagnostic.*
+build_output.*
+load_test_result*

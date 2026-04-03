@@ -6,7 +6,12 @@ import {
     categorizeSkills,
     parseResumeText,
     generateSummary,
-    chatResumeAssistant
+    chatResumeAssistant,
+    fetchGitHubProjects,
+    generateProjectBullets,
+    generateExperienceBullets,
+    atsOptimizeResume,
+    calculateATSScore
 } from './resumeApi'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -18,10 +23,11 @@ import './ResumeBuilderPage.css'
 // ═══════════════════════════════════════
 //  EMPTY STATE TEMPLATES
 // ═══════════════════════════════════════
-const emptyPersonal = { name: '', email: '', phone: '', linkedin: '', github: '' }
+const emptyPersonal = { name: '', email: '', phone: '', linkedin: '', github: '', targetRole: '' }
 const emptyEducation = { institution: '', degree: '', date: '', gpa: '' }
 const emptyExperience = { company: '', title: '', date: '', location: '', description: '', bullets: [] }
 const emptyProject = { name: '', description: '', technologies: '', link: '', bullets: [] }
+const emptyCertification = { name: '', issuer: '', date: '', link: '' }
 
 // ═══════════════════════════════════════
 //  STEP DEFINITIONS
@@ -32,6 +38,7 @@ const STEPS = [
     { id: 'experience', label: '💼 Experience', icon: '💼' },
     { id: 'projects', label: '💻 Projects', icon: '💻' },
     { id: 'skills', label: '🛠️ Skills', icon: '🛠️' },
+    { id: 'certifications', label: '📜 Certifications', icon: '📜' },
     { id: 'summary', label: '📝 Summary', icon: '📝' },
 ]
 
@@ -39,7 +46,16 @@ const STEPS = [
 //  LIVE RESUME PREVIEW
 // ═══════════════════════════════════════
 const ResumePreview = ({ data }) => {
-    const { personal, education, experience, projects, skills, categorizedSkills, summary } = data
+    const { personal, education, experience, projects, skills, categorizedSkills, summary, certifications } = data
+
+    // Helper to strip bold from text
+    const clean = (text) => (text || '').replace(/\*\*/g, '').replace(/\*/g, '')
+
+    // Helper to extract display URL from a full URL
+    const displayUrl = (url) => {
+        if (!url) return ''
+        return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    }
 
     const hasContent = personal.name || personal.email || personal.phone ||
         education.some(e => e.institution) || experience.some(e => e.company || e.title) ||
@@ -83,15 +99,15 @@ const ResumePreview = ({ data }) => {
             <div className="rb-resume-contact">
                 {personal.phone && <span>{personal.phone}</span>}
                 {personal.email && <span><a href={`mailto:${personal.email}`}>{personal.email}</a></span>}
-                {personal.linkedin && <span><a href={personal.linkedin} target="_blank" rel="noreferrer">{personal.linkedin.replace(/https?:\/\/(www\.)?linkedin\.com\/in\//, '').replace(/\/$/, '')}</a></span>}
-                {personal.github && <span><a href={personal.github} target="_blank" rel="noreferrer">{personal.github.replace(/https?:\/\/(www\.)?github\.com\//, '').replace(/\/$/, '')}</a></span>}
+                {personal.linkedin && <span><a href={personal.linkedin.startsWith('http') ? personal.linkedin : `https://${personal.linkedin}`} target="_blank" rel="noreferrer">{displayUrl(personal.linkedin)}</a></span>}
+                {personal.github && <span><a href={personal.github.startsWith('http') ? personal.github : `https://${personal.github}`} target="_blank" rel="noreferrer">{displayUrl(personal.github)}</a></span>}
             </div>
 
             {/* Summary */}
             {summary && (
                 <>
                     <h2>Professional Summary</h2>
-                    <p className="rb-resume-summary">{summary}</p>
+                    <p className="rb-resume-summary">{clean(summary)}</p>
                 </>
             )}
 
@@ -129,9 +145,9 @@ const ResumePreview = ({ data }) => {
                                 <span>{exp.location}</span>
                             </div>
                             {exp.bullets && exp.bullets.length > 0 ? (
-                                <ul>{exp.bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>
+                                <ul>{exp.bullets.map((b, j) => <li key={j}>{clean(b)}</li>)}</ul>
                             ) : exp.description ? (
-                                <ul><li>{exp.description}</li></ul>
+                                <ul><li>{clean(exp.description)}</li></ul>
                             ) : null}
                         </div>
                     ))}
@@ -146,14 +162,15 @@ const ResumePreview = ({ data }) => {
                         <div key={i} className="rb-resume-item">
                             <div className="rb-resume-item-header">
                                 <span className="rb-resume-item-name">
-                                    {proj.link ? <a href={proj.link} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>{proj.name}</a> : proj.name}
+                                    {proj.name}
                                     {proj.technologies && <span style={{ fontWeight: 400 }}> | {proj.technologies}</span>}
+                                    {proj.link && <span style={{ fontWeight: 400, fontSize: '9pt' }}> | <a href={proj.link} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{displayUrl(proj.link)}</a></span>}
                                 </span>
                             </div>
                             {proj.bullets && proj.bullets.length > 0 ? (
-                                <ul>{proj.bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>
+                                <ul>{proj.bullets.map((b, j) => <li key={j}>{clean(b)}</li>)}</ul>
                             ) : proj.description ? (
-                                <ul><li>{proj.description}</li></ul>
+                                <ul><li>{clean(proj.description)}</li></ul>
                             ) : null}
                         </div>
                     ))}
@@ -174,6 +191,29 @@ const ResumePreview = ({ data }) => {
                             : <p>{skills.join(', ')}</p>
                         }
                     </div>
+                </>
+            )}
+
+            {/* Certifications */}
+            {certifications && certifications.length > 0 && certifications.some(c => c.name) && (
+                <>
+                    <h2>Certifications</h2>
+                    {certifications.filter(c => c.name).map((cert, i) => (
+                        <div key={i} className="rb-resume-item">
+                            <div className="rb-resume-item-header">
+                                <span className="rb-resume-item-name">
+                                    {cert.name}
+                                    {cert.link && <span style={{ fontWeight: 400, fontSize: '9pt' }}> — <a href={cert.link} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>Verify</a></span>}
+                                </span>
+                                <span className="rb-resume-item-date">{cert.date}</span>
+                            </div>
+                            {cert.issuer && (
+                                <div className="rb-resume-item-sub">
+                                    <span>{cert.issuer}</span>
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </>
             )}
         </div>
@@ -224,12 +264,23 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
     const addProject = () => setData(prev => ({ ...prev, projects: [...prev.projects, { ...emptyProject }] }))
     const removeProject = (idx) => setData(prev => ({ ...prev, projects: prev.projects.filter((_, i) => i !== idx) }))
 
+    // Certifications handlers
+    const updateCertification = (idx, field, value) => {
+        setData(prev => {
+            const certs = [...(prev.certifications || [])]
+            certs[idx] = { ...certs[idx], [field]: value }
+            return { ...prev, certifications: certs }
+        })
+    }
+    const addCertification = () => setData(prev => ({ ...prev, certifications: [...(prev.certifications || []), { ...emptyCertification }] }))
+    const removeCertification = (idx) => setData(prev => ({ ...prev, certifications: (prev.certifications || []).filter((_, i) => i !== idx) }))
+
     const handleAIEnhanceExp = async (idx) => {
         const exp = data.experience[idx]
         if (!exp.description) return
         setAiLoading(prev => ({ ...prev, [`exp_${idx}`]: true }))
         try {
-            const bullets = await enhanceExperience(`${exp.title} at ${exp.company}: ${exp.description}`)
+            const bullets = await enhanceExperience(`${exp.title} at ${exp.company}: ${exp.description}`, data.personal?.targetRole || '')
             setData(prev => {
                 const newExp = [...prev.experience]
                 newExp[idx] = { ...newExp[idx], bullets }
@@ -246,7 +297,7 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
         if (!proj.description) return
         setAiLoading(prev => ({ ...prev, [`proj_${idx}`]: true }))
         try {
-            const bullets = await enhanceProject(proj.name, proj.description)
+            const bullets = await enhanceProject(proj.name, proj.description, data.personal?.targetRole || '')
             setData(prev => {
                 const newProj = [...prev.projects]
                 newProj[idx] = { ...newProj[idx], bullets }
@@ -262,7 +313,7 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
         if (!data.skills.length) return
         setAiLoading(prev => ({ ...prev, skills: true }))
         try {
-            const categorized = await categorizeSkills(data.skills)
+            const categorized = await categorizeSkills(data.skills, data.personal?.targetRole || '')
             setData(prev => ({ ...prev, categorizedSkills: categorized }))
         } catch (err) {
             console.error(err)
@@ -281,6 +332,59 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
         setAiLoading(prev => ({ ...prev, summary: false }))
     }
 
+    const handleImportGitHub = async () => {
+        const githubUrl = data.personal.github
+        if (!githubUrl) return
+        setAiLoading(prev => ({ ...prev, github_import: true }))
+        try {
+            const result = await fetchGitHubProjects(githubUrl)
+            setData(prev => {
+                const existingProjects = prev.projects.filter(p => p.name)
+                const newSkills = [...new Set([...prev.skills, ...result.skills])]
+                return {
+                    ...prev,
+                    projects: existingProjects.length > 0
+                        ? [...existingProjects, ...result.projects]
+                        : result.projects,
+                    skills: newSkills
+                }
+            })
+        } catch (err) {
+            console.error(err)
+            alert(err.message || 'Failed to import GitHub projects')
+        }
+        setAiLoading(prev => ({ ...prev, github_import: false }))
+    }
+
+    // Validation helpers
+    const getLinkedInWarning = () => {
+        const li = data.personal.linkedin?.trim();
+        if (li && (li.toLowerCase() === 'linkedin' || (!li.includes('/') && !li.includes('.')))) {
+            return '⚠️ Enter your full LinkedIn URL (e.g., linkedin.com/in/yourname), not just "LinkedIn"';
+        }
+        return null;
+    }
+
+    const getGitHubWarning = () => {
+        const gh = data.personal.github?.trim();
+        if (gh && gh.toLowerCase() === 'github') {
+            return '⚠️ Enter your GitHub profile URL or username, not just "GitHub"';
+        }
+        return null;
+    }
+
+    const getEducationDateWarning = (dateString) => {
+        if (!dateString) return null;
+        const years = dateString.match(/\d{4}/g);
+        if (years && years.length >= 2) {
+            const span = parseInt(years[years.length - 1]) - parseInt(years[0]);
+            if (span > 5) {
+                return `⚠️ ${span}-year span detected. If this is an integrated program, clarify (e.g., "B.Tech + M.Tech Integrated")`;
+            }
+        }
+        return null;
+    }
+
     const renderStep = () => {
         switch (step) {
             case 0: // Personal Info
@@ -290,6 +394,10 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                         <div className="rb-field">
                             <label>Full Name</label>
                             <input placeholder="John Doe" value={data.personal.name} onChange={e => updatePersonal('name', e.target.value)} />
+                        </div>
+                        <div className="rb-field">
+                            <label>🎯 Target Role <span style={{ color: '#63636E', fontWeight: 400 }}>(boosts ATS keyword matching)</span></label>
+                            <input placeholder="e.g., Software Engineer, Full-Stack Developer, Data Scientist" value={data.personal.targetRole || ''} onChange={e => updatePersonal('targetRole', e.target.value)} />
                         </div>
                         <div className="rb-field-row">
                             <div className="rb-field">
@@ -305,10 +413,12 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                             <div className="rb-field">
                                 <label>LinkedIn URL</label>
                                 <input placeholder="linkedin.com/in/johndoe" value={data.personal.linkedin} onChange={e => updatePersonal('linkedin', e.target.value)} />
+                                {getLinkedInWarning() && <div className="rb-field-warning">{getLinkedInWarning()}</div>}
                             </div>
                             <div className="rb-field">
                                 <label>GitHub URL</label>
                                 <input placeholder="github.com/johndoe" value={data.personal.github} onChange={e => updatePersonal('github', e.target.value)} />
+                                {getGitHubWarning() && <div className="rb-field-warning">{getGitHubWarning()}</div>}
                             </div>
                         </div>
                     </div>
@@ -335,6 +445,7 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                     <div className="rb-field">
                                         <label>Date</label>
                                         <input placeholder="Aug 2020 — May 2024" value={edu.date} onChange={e => updateEducation(i, 'date', e.target.value)} />
+                                        {getEducationDateWarning(edu.date) && <div className="rb-field-warning">{getEducationDateWarning(edu.date)}</div>}
                                     </div>
                                     <div className="rb-field">
                                         <label>GPA (optional)</label>
@@ -398,6 +509,44 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                 return (
                     <div className="rb-form-section">
                         <h3>💻 Projects</h3>
+
+                        {/* GitHub Import — Primary Action */}
+                        <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'linear-gradient(135deg, rgba(45,51,59,0.6), rgba(26,30,36,0.8))', borderRadius: '0.625rem', border: '1px solid #30363d' }}>
+                            {data.personal.github ? (
+                                <>
+                                    <button
+                                        className={`rb-ai-btn ${aiLoading.github_import ? 'loading' : ''}`}
+                                        onClick={handleImportGitHub}
+                                        disabled={aiLoading.github_import}
+                                        style={{ width: '100%', justifyContent: 'center', padding: '0.75rem 1rem', fontSize: '0.875rem', background: 'linear-gradient(135deg, #238636, #2ea043)', border: 'none', color: '#fff', fontWeight: 600 }}
+                                    >
+                                        {aiLoading.github_import
+                                            ? <><span className="rb-spinner"></span> Importing from GitHub — this may take a minute...</>
+                                            : '🔗 Import Projects from GitHub'
+                                        }
+                                    </button>
+                                    <p style={{ fontSize: '0.6875rem', color: '#8b949e', marginTop: '0.5rem', textAlign: 'center', lineHeight: 1.4 }}>
+                                        Fetches your top repos from <strong style={{ color: '#c9d1d9' }}>{data.personal.github}</strong> and auto-generates professional bullet points using AI
+                                    </p>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+                                    <p style={{ fontSize: '0.8125rem', color: '#8b949e', marginBottom: '0.375rem' }}>
+                                        💡 <strong style={{ color: '#c9d1d9' }}>Tip:</strong> Add your GitHub URL in the <strong style={{ color: '#c9d1d9' }}>Personal Info</strong> step to import projects automatically!
+                                    </p>
+                                    <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.6875rem' }} onClick={() => setStep(0)}>
+                                        ← Go to Personal Info
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ textAlign: 'center', color: '#63636E', fontSize: '0.75rem', margin: '0.5rem 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ flex: 1, height: '1px', background: '#27272F' }}></span>
+                            <span>or add manually</span>
+                            <span style={{ flex: 1, height: '1px', background: '#27272F' }}></span>
+                        </div>
+
                         {data.projects.map((proj, i) => (
                             <div key={i} className="rb-entry">
                                 {data.projects.length > 1 && (
@@ -418,12 +567,9 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                     <input placeholder="https://github.com/..." value={proj.link} onChange={e => updateProject(i, 'link', e.target.value)} />
                                 </div>
                                 <div className="rb-field">
-                                    <label>Description</label>
-                                    <textarea placeholder="Describe the project, its purpose, and your contributions..." value={proj.description} onChange={e => updateProject(i, 'description', e.target.value)} />
+                                    <label>Description <span style={{ color: '#63636E', fontWeight: 400 }}>(leave blank to auto-generate)</span></label>
+                                    <textarea placeholder="Describe the project — or leave this empty and AI will generate it for you at download time..." value={proj.description} onChange={e => updateProject(i, 'description', e.target.value)} />
                                 </div>
-                                <button className={`rb-ai-btn ${aiLoading[`proj_${i}`] ? 'loading' : ''}`} onClick={() => handleAIEnhanceProj(i)} disabled={aiLoading[`proj_${i}`] || !proj.description}>
-                                    {aiLoading[`proj_${i}`] ? <><span className="rb-spinner"></span> Enhancing...</> : '✨ AI Enhance'}
-                                </button>
                                 {proj.bullets && proj.bullets.length > 0 && (
                                     <div className="rb-status success" style={{ marginTop: '0.5rem' }}>
                                         ✓ {proj.bullets.length} bullet points generated
@@ -462,7 +608,50 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                     </div>
                 )
 
-            case 5: // Summary
+            case 5: // Certifications
+                return (
+                    <div className="rb-form-section">
+                        <h3>📜 Certifications <span style={{ color: '#63636E', fontWeight: 400, fontSize: '0.75rem' }}>(optional — boosts ATS by ~5 points)</span></h3>
+                        <p style={{ fontSize: '0.8125rem', color: '#63636E', marginBottom: '1rem', lineHeight: 1.5 }}>
+                            Add any relevant certifications (e.g., AWS Solutions Architect, Google Cloud Professional, Coursera Deep Learning, HackerRank certificates).
+                        </p>
+                        {(data.certifications || []).map((cert, i) => (
+                            <div key={i} className="rb-entry">
+                                {(data.certifications || []).length > 1 && (
+                                    <button className="rb-entry-remove" onClick={() => removeCertification(i)}>✕</button>
+                                )}
+                                <div className="rb-field-row">
+                                    <div className="rb-field">
+                                        <label>Certification Name</label>
+                                        <input placeholder="AWS Solutions Architect" value={cert.name} onChange={e => updateCertification(i, 'name', e.target.value)} />
+                                    </div>
+                                    <div className="rb-field">
+                                        <label>Issuing Organization</label>
+                                        <input placeholder="Amazon Web Services" value={cert.issuer} onChange={e => updateCertification(i, 'issuer', e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="rb-field-row">
+                                    <div className="rb-field">
+                                        <label>Date</label>
+                                        <input placeholder="Jan 2024" value={cert.date} onChange={e => updateCertification(i, 'date', e.target.value)} />
+                                    </div>
+                                    <div className="rb-field">
+                                        <label>Verification Link (optional)</label>
+                                        <input placeholder="https://..." value={cert.link} onChange={e => updateCertification(i, 'link', e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <button className="rb-add-btn" onClick={addCertification}>+ Add Certification</button>
+                        {(!data.certifications || data.certifications.length === 0) && (
+                            <div className="rb-field-hint" style={{ marginTop: '0.75rem' }}>
+                                💡 No certifications yet? You can skip this step — but adding even one can boost your ATS score.
+                            </div>
+                        )}
+                    </div>
+                )
+
+            case 6: // Summary
                 return (
                     <div className="rb-form-section">
                         <h3>📝 Professional Summary</h3>
@@ -474,9 +663,12 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                                 onChange={e => setData(prev => ({ ...prev, summary: e.target.value }))}
                                 style={{ minHeight: '120px' }}
                             />
+                            {data.summary && !data.summary.match(/[.!?]$/) && (
+                                <div className="rb-field-warning">⚠️ Your summary appears truncated — make sure it ends with a complete sentence.</div>
+                            )}
                         </div>
                         <button className={`rb-ai-btn ${aiLoading.summary ? 'loading' : ''}`} onClick={handleGenerateSummary} disabled={aiLoading.summary}>
-                            {aiLoading.summary ? <><span className="rb-spinner"></span> Generating...</> : '✨ AI Generate Summary'}
+                            {aiLoading.summary ? <><span className="rb-spinner"></span> Generating...</> : '✨ AI Generate ATS-Optimized Summary'}
                         </button>
                     </div>
                 )
@@ -548,7 +740,8 @@ const UploadMode = ({ setData, setMode }) => {
                     email: parsed.email || '',
                     phone: parsed.phone || '',
                     linkedin: parsed.linkedin || '',
-                    github: parsed.github || ''
+                    github: parsed.github || '',
+                    targetRole: ''
                 },
                 education: (parsed.education || []).length > 0
                     ? parsed.education.map(e => ({
@@ -578,7 +771,8 @@ const UploadMode = ({ setData, setMode }) => {
                     }))
                     : [{ ...emptyProject }],
                 skills: parsed.skills || [],
-                summary: parsed.summary || ''
+                summary: parsed.summary || '',
+                certifications: parsed.certifications || []
             }))
 
             setStatus({ type: 'success', text: 'Resume parsed! Switching to editor...' })
@@ -624,7 +818,7 @@ const UploadMode = ({ setData, setMode }) => {
 // ═══════════════════════════════════════
 const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
     const [messages, setMessages] = useState([
-        { role: 'ai', content: "Hi! I'm the AI Resume Assistant. I'll help you build a professional resume through conversation. Let's start — what's your full name?" }
+        { role: 'ai', content: "👋 **Welcome to the AI Resume Builder!**\n\nI'll guide you step-by-step to create a polished, professional resume. Let's get started!\n\n**Step 1 — Personal Information**\n\nPlease share the following details:\n1. **Full Name**\n2. **Email Address**\n3. **Phone Number**\n4. **LinkedIn Profile URL** (if you have one)\n5. **GitHub Profile URL** (if applicable)\n\nYou can share all of them at once, or one at a time — whatever's comfortable!" }
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
@@ -678,6 +872,33 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
                     } else if (parsed.section === 'summary' && parsed.data) {
                         const text = typeof parsed.data === 'string' ? parsed.data : parsed.data.summary || parsed.data.text || '';
                         setData(prev => ({ ...prev, summary: text }));
+                    } else if (parsed.section === 'github_import' && parsed.data?.action === 'import') {
+                        // Trigger GitHub import from chat
+                        const githubUrl = data.personal?.github;
+                        if (githubUrl) {
+                            setMessages(prev => [...prev, { role: 'ai', content: '🔄 **Fetching your GitHub repositories...** This may take a moment while I analyze each project.' }]);
+                            try {
+                                const result = await fetchGitHubProjects(githubUrl);
+                                setData(prev => {
+                                    const existingProjects = prev.projects.filter(p => p.name);
+                                    const newSkills = [...new Set([...prev.skills, ...result.skills])];
+                                    return {
+                                        ...prev,
+                                        projects: existingProjects.length > 0 ? [...existingProjects, ...result.projects] : result.projects,
+                                        skills: newSkills
+                                    };
+                                });
+                                const projNames = result.projects.map(p => `• **${p.name}**`).join('\n');
+                                setMessages(prev => [...prev, {
+                                    role: 'ai',
+                                    content: `✅ **Successfully imported ${result.projects.length} projects from GitHub!**\n\n${projNames}\n\nI also found these **skills** from your repos: ${result.skills.join(', ')}\n\nWould you like to add any more projects manually, or shall we move on to **Skills**?`
+                                }]);
+                            } catch (err) {
+                                setMessages(prev => [...prev, { role: 'ai', content: `❌ **Couldn't import GitHub projects:** ${err.message}\n\nPlease share your projects manually instead.` }]);
+                            }
+                        } else {
+                            setMessages(prev => [...prev, { role: 'ai', content: "❌ I don't have your GitHub URL yet. Could you share your **GitHub profile link** first?" }]);
+                        }
                     }
                 } catch (e) { /* ignore parse errors */ }
             }
@@ -701,11 +922,28 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
                 </div>
             </div>
             <div className="rb-chat-area">
-                {messages.map((msg, i) => (
-                    <div key={i} className={`rb-chat-msg ${msg.role === 'ai' ? 'ai' : 'user'}`}>
-                        {msg.content}
-                    </div>
-                ))}
+                {messages.map((msg, i) => {
+                    // Strip resume_data blocks from display
+                    const displayContent = msg.content.replace(/```resume_data[\s\S]*?```/g, '').trim();
+                    // Convert markdown-style formatting to HTML for AI messages
+                    const formatMessage = (text) => {
+                        if (msg.role !== 'ai') return text;
+                        return text
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\n/g, '<br/>')
+                            .replace(/^(\d+)\.\s/gm, '<br/><strong>$1.</strong> ')
+                            .replace(/^[-•]\s/gm, '<br/>• ')
+                    };
+                    if (!displayContent) return null;
+                    return (
+                        <div key={i} className={`rb-chat-msg ${msg.role === 'ai' ? 'ai' : 'user'}`}>
+                            {msg.role === 'ai'
+                                ? <span dangerouslySetInnerHTML={{ __html: formatMessage(displayContent) }} />
+                                : displayContent
+                            }
+                        </div>
+                    );
+                })}
                 {isTyping && (
                     <div className="rb-chat-msg ai" style={{ fontStyle: 'italic', color: '#63636E' }}>
                         Thinking...
@@ -744,7 +982,8 @@ export default function ResumeBuilderPage() {
         projects: [{ ...emptyProject }],
         skills: [],
         categorizedSkills: {},
-        summary: ''
+        summary: '',
+        certifications: []
     })
 
     useEffect(() => {
@@ -813,6 +1052,34 @@ export default function ResumeBuilderPage() {
             return
         }
         setIsDownloading(true)
+
+        // ATS Optimization Pass — fixes all ATS issues before PDF generation
+        try {
+            const optimizedData = await atsOptimizeResume(resumeData)
+            setResumeData(optimizedData)
+            // Brief delay to let state update render
+            await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (err) {
+            console.error('ATS optimization error:', err)
+            // Fallback: still try the old enhance approach
+            try {
+                const projectsWithContent = resumeData.projects.filter(p => p.name)
+                const experienceWithContent = resumeData.experience.filter(e => e.company || e.title)
+                const needsProjEnhance = projectsWithContent.some(p => !p.bullets || p.bullets.length === 0)
+                const needsExpEnhance = experienceWithContent.some(e => !e.bullets || e.bullets.length === 0)
+                if (needsProjEnhance || needsExpEnhance) {
+                    const [enhancedProjects, enhancedExperience] = await Promise.all([
+                        needsProjEnhance ? generateProjectBullets(resumeData.projects) : Promise.resolve(resumeData.projects),
+                        needsExpEnhance ? generateExperienceBullets(resumeData.experience) : Promise.resolve(resumeData.experience)
+                    ])
+                    setResumeData(prev => ({ ...prev, projects: enhancedProjects, experience: enhancedExperience }))
+                    await new Promise(resolve => setTimeout(resolve, 300))
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback enhance error:', fallbackErr)
+            }
+        }
+
         const newBalance = await deductCredits(user.uid, 20, 'Resume Builder (PDF)')
         if (newBalance !== null) {
             setWalletCredits(newBalance)
@@ -822,6 +1089,11 @@ export default function ResumeBuilderPage() {
         }
         setIsDownloading(false)
     }
+
+    // Real-time ATS score
+    const atsResult = calculateATSScore(resumeData)
+    const atsScore = atsResult.score
+    const atsColor = atsScore >= 80 ? '#22C55E' : atsScore >= 50 ? '#F59E0B' : '#EF4444'
 
     return (
         <div className="rb-page">
@@ -922,10 +1194,35 @@ export default function ResumeBuilderPage() {
                                             ← Modes
                                         </button>
                                         <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={handleDownloadPdf} disabled={isDownloading}>
-                                            {isDownloading ? '...' : '📥 PDF (-20c)'}
+                                            {isDownloading ? '⏳ Optimizing...' : '📥 PDF (-20c)'}
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* ATS Score Gauge */}
+                                <div className="rb-ats-gauge">
+                                    <div className="rb-ats-gauge-circle" style={{ '--ats-color': atsColor, '--ats-progress': `${atsScore * 3.6}deg` }}>
+                                        <div className="rb-ats-gauge-inner">
+                                            <span className="rb-ats-score" style={{ color: atsColor }}>{atsScore}</span>
+                                            <span className="rb-ats-label">ATS Score</span>
+                                        </div>
+                                    </div>
+                                    <div className="rb-ats-tips">
+                                        {atsResult.tips.slice(0, 4).map((tip, i) => (
+                                            <div key={i} className="rb-ats-tip">
+                                                <span className="rb-ats-tip-icon">💡</span>
+                                                <span>{tip}</span>
+                                            </div>
+                                        ))}
+                                        {atsScore >= 80 && (
+                                            <div className="rb-ats-tip" style={{ color: '#22C55E' }}>
+                                                <span className="rb-ats-tip-icon">✅</span>
+                                                <span>Great job! Your resume is ATS-optimized.</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <ResumePreview data={resumeData} />
                             </div>
                         </div>

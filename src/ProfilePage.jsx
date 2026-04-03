@@ -128,19 +128,45 @@ export default function ProfilePage() {
                 name: "SnapAI",
                 description: pack.label,
                 order_id: data.id, // This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+                notes: {
+                    uid: user.uid,
+                    email: user.email,
+                    credits: String(pack.credits),
+                    label: pack.label
+                },
                 handler: async function (response) {
                     try {
                         // Keep UI in processing state
-                        setBuying('custom'); 
+                        setBuying('processing'); 
+                        console.log('Payment successful! Razorpay response:', response);
                         
-                        // The backend webhook securely updates the database now!
-                        // Wait 3 seconds to ensure the webhook has completed, then refresh UI
-                        setTimeout(async () => {
+                        // Poll for credit update — the webhook runs async, so give it time
+                        const currentCredits = wallet.credits;
+                        let updated = false;
+                        
+                        for (let attempt = 1; attempt <= 6; attempt++) {
+                            await new Promise(r => setTimeout(r, 2500)); // wait 2.5s between polls
+                            const freshWallet = await loadWallet(user.uid);
+                            console.log(`Poll attempt ${attempt}: balance = ${freshWallet.credits} (was ${currentCredits})`);
+                            
+                            if (freshWallet.credits > currentCredits) {
+                                setWallet(freshWallet);
+                                updated = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!updated) {
+                            // Final attempt — force refresh one more time
                             await refreshWallet(user.uid);
-                            setBuying(null);
-                        }, 3000);
+                            console.warn('Credits may not have updated yet. If credits are missing, they will be added shortly.');
+                            alert('Payment successful! If credits don\'t appear immediately, please refresh the page in a minute. Your payment is safe.');
+                        }
+                        
+                        setBuying(null);
                     } catch(err) {
                         console.error('Failed refreshing post-payment', err)
+                        alert('Payment was successful but there was an issue refreshing your balance. Please refresh the page.');
                         setBuying(null)
                     }
                 },
@@ -241,7 +267,7 @@ export default function ProfilePage() {
                     <h2 className="text-lg font-medium text-[#EDEDEF] mb-6 flex items-center gap-2">Recharge Credits</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {CREDIT_PACKS.map(pack => (
-                            <button key={pack.id} className={`bg-[#111113] border ${pack.badge ? 'border-[#3B82F6]/30' : 'border-[#1C1C22]'} rounded-lg p-6 text-left hover:border-[#27272F] ${pack.badge ? 'hover:border-[#3B82F6]/50' : ''} transition-colors relative flex flex-col`} onClick={() => handleBuyPack(pack)} disabled={buying === pack.id}>
+                            <button key={pack.id} className={`bg-[#111113] border ${pack.badge ? 'border-[#3B82F6]/30' : 'border-[#1C1C22]'} rounded-lg p-6 text-left hover:border-[#27272F] ${pack.badge ? 'hover:border-[#3B82F6]/50' : ''} transition-colors relative flex flex-col`} onClick={() => handleBuyPack(pack)} disabled={buying !== null}>
                                 {pack.badge && (
                                     <span className="absolute -top-2.5 right-4 bg-[#3B82F6]/10 border border-[#3B82F6]/20 text-xs font-mono text-[#3B82F6] px-2 py-0.5 rounded">
                                         {pack.badge}
@@ -257,7 +283,7 @@ export default function ProfilePage() {
                                         {pack.save && <span className="text-xs text-[#22C55E] bg-[#22C55E]/10 px-2 py-0.5 rounded">Save {pack.save}</span>}
                                     </div>
                                     <div className={`w-full py-2 rounded-md text-sm font-medium text-center transition-colors ${pack.badge ? 'bg-[#EDEDEF] text-[#09090B] hover:bg-[#D4D4D8]' : 'bg-[#1A1A1F] border border-[#27272F] text-[#EDEDEF] hover:bg-[#222228]'}`}>
-                                        {buying === pack.id ? 'Adding...' : 'Buy Now'}
+                                        {buying === pack.id ? 'Adding...' : buying === 'processing' ? 'Processing...' : 'Buy Now'}
                                     </div>
                                 </div>
                             </button>

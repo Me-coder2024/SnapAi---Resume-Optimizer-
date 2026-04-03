@@ -22,7 +22,7 @@ const TrackWebPage = () => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        if (username === 'snapadmin' && password === '0105') {
+        if (username === (import.meta.env.VITE_ADMIN_USERNAME || '') && password === (import.meta.env.VITE_ADMIN_PASSWORD || '')) {
             setIsAuthenticated(true);
             setError('');
         } else {

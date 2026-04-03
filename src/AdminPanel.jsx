@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import './AdminPanel.css'
 
-// Auth credentials
-const ADMIN_USERNAME = 'snapadmin'
-const ADMIN_PASSWORD = '0105'
+// Auth credentials (from environment — never hardcode in source)
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || ''
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || ''
 
 // Default tools (pre-loaded)
 const DEFAULT_TOOLS = [

@@ -19,6 +19,7 @@ CRITICAL RULES:
 - DO NOT force changes on everything. If a bullet point or section is already decent, LEAVE IT ALONE.
 - ONLY flag things that are genuinely weak, non-ATS friendly, or missing critical keywords that directly affect ATS parsing and scoring.
 - If something is already good, acknowledge it and move on — don't suggest improvements for already-strong sections.
+- NEVER USE PLACEHOLDERS like 'X', 'Y', 'Z', '[Number]', or '%'. When rewriting bullet points to be quantified, you MUST use realistic estimated numbers (e.g., 'saved $10,000', 'increased by 25%', 'led team of 5') rather than generic variables.
 - Be SPECIFIC: reference actual text, bullet points, or sections from the profile. Never say generic things like "add more metrics" without explaining exactly what to change.
 - If the profile is reasonably strong for the target role, give it a high score. Do not nitpick or manufacture weaknesses.
 - Evaluate everything through the strict lens of the target job role and ATS impact.
@@ -188,7 +189,7 @@ Original text:
 
 Rules:
 - Keep the same factual content but make it more compelling
-- Add quantification where reasonable
+- Add quantification where reasonable, but NEVER use placeholders like 'X', 'Y', 'Z', or '[Number]'. Use realistic estimated numbers instead.
 - Use strong action verbs
 - Optimize for ATS keywords relevant to the target role
 - Keep roughly the same length

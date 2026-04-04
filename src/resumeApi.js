@@ -12,25 +12,15 @@ async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperat
         model: modelName, 
     });
 
-    // 30-second timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    try {
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature,
-                maxOutputTokens: maxTokens
-            }
-        });
-        clearTimeout(timeoutId);
-        return result.response.text().trim();
-    } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') throw new Error('Request timed out (30s). Please try again.');
-        throw err;
-    }
+    const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature,
+            maxOutputTokens: maxTokens
+        }
+    });
+    
+    return result.response.text().trim();
 }
 
 function cleanJSON(text) {

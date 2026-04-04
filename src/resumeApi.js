@@ -166,21 +166,49 @@ The required JSON structure is:
     "education": [{"institution": "University Name", "degree": "Degree Title", "date": "Date Range", "gpa": "GPA if mentioned"}],
     "experience": [{"company": "Company Name", "title": "Job Title", "date": "Date Range", "location": "Location", "bullets": ["bullet point 1", "bullet point 2"]}],
     "projects": [{"name": "Project Name", "description": "Project Description", "technologies": "Tech used", "link": "Project Link if any", "bullets": ["bullet 1", "bullet 2"]}],
-    "skills": ["Skill 1", "Skill 2"]
+    "skills": ["Skill 1", "Skill 2"],
+    "certifications": ["Certification 1"]
 }
 
+IMPORTANT RULES:
+- If a field is not found in the resume, use an empty string "" or empty array [].
+- Extract ALL education entries, ALL experience entries, ALL projects, and ALL skills.
+- For skills, split comma-separated lists into individual items.
+- Output ONLY the JSON object. No markdown, no backticks, no explanation.
+
 Raw Resume Text:
-${rawText}
+${rawText}`
 
-Output ONLY valid JSON. Do not include any markdown wrappers or explanatory text.`
+    // Attempt parsing with retries
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 4096)
+            
+            // Try multiple JSON extraction strategies
+            let jsonStr = text.trim()
+            
+            // Strategy 1: Remove markdown wrappers
+            if (jsonStr.includes('```json')) {
+                jsonStr = jsonStr.split('```json').pop().split('```')[0].trim()
+            } else if (jsonStr.includes('```')) {
+                jsonStr = jsonStr.split('```')[1]?.split('```')[0]?.trim() || jsonStr
+            }
+            
+            // Strategy 2: Find first { and last }
+            const firstBrace = jsonStr.indexOf('{')
+            const lastBrace = jsonStr.lastIndexOf('}')
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                jsonStr = jsonStr.slice(firstBrace, lastBrace + 1)
+            }
 
-    try {
-        const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 2048)
-        return JSON.parse(cleanJSON(text))
-    } catch (err) {
-        console.error('parseResumeText error:', err)
-        return null
+            const parsed = JSON.parse(jsonStr)
+            return parsed
+        } catch (err) {
+            console.error(`parseResumeText attempt ${attempt + 1} error:`, err)
+            if (attempt === 1) return null // Give up after 2nd attempt
+        }
     }
+    return null
 }
 
 /**

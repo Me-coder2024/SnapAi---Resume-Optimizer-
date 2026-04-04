@@ -1194,27 +1194,280 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
+
+/* Tablet */
+@media (max-width: 1023px) {
+    .rb-main {
+        padding: 1.5rem 0 3rem;
+    }
+
+    .rb-preview-panel {
+        position: static;
+        max-height: none;
+    }
+}
+
+/* Small Tablet / Large Phone */
+@media (max-width: 768px) {
+    .rb-container {
+        padding: 0 1rem;
+    }
+
+    .rb-hero {
+        padding: 2.5rem 0 2rem;
+    }
+
     .rb-hero h1 {
-        font-size: 1.75rem;
+        font-size: 2rem;
+    }
+
+    .rb-hero p {
+        font-size: 1rem;
+    }
+
+    .rb-form-header {
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .rb-form-header h2 {
+        font-size: 0.8125rem;
+    }
+
+    .rb-form-body {
+        padding: 1rem;
+    }
+
+    .rb-entry {
+        padding: 0.75rem;
+    }
+
+    .rb-resume {
+        transform: scale(0.72);
+        margin: -3rem 0;
+    }
+
+    .rb-btn-group {
+        flex-wrap: wrap;
+    }
+
+    .rb-ats-gauge {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .rb-upload-area {
+        padding: 1rem;
+    }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+    .rb-container {
+        padding: 0 0.75rem;
+    }
+
+    .rb-hero {
+        padding: 1.5rem 0 1.25rem;
+    }
+
+    .rb-hero h1 {
+        font-size: 1.5rem;
+    }
+
+    .rb-hero p {
+        font-size: 0.875rem;
+    }
+
+    .rb-hero-badge {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .rb-modes {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .rb-mode-card {
+        padding: 1.25rem;
+    }
+
+    .rb-nav-inner {
+        padding: 0 0.75rem;
+    }
+
+    /* Form Header — stack buttons on small screens */
+    .rb-form-header {
+        padding: 0.625rem 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+
+    .rb-form-header h2 {
+        font-size: 0.75rem;
+        width: 100%;
+    }
+
+    .rb-form-header > div {
+        width: 100%;
+        display: flex;
+        gap: 0.375rem;
+    }
+
+    .rb-form-header > div .rb-btn {
+        flex: 1;
+        font-size: 0.6875rem !important;
+        padding: 0.25rem 0.5rem !important;
+    }
+
+    /* Form Body */
+    .rb-form-body {
+        padding: 0.75rem;
+    }
+
+    .rb-form-section h3 {
+        font-size: 0.8125rem;
+    }
+
+    .rb-field label {
+        font-size: 0.75rem;
+    }
+
+    .rb-field input,
+    .rb-field textarea {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8125rem;
     }
 
     .rb-field-row {
         grid-template-columns: 1fr;
     }
 
+    /* Entry cards */
+    .rb-entry {
+        padding: 0.625rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .rb-entry-remove {
+        top: 0.375rem;
+        right: 0.375rem;
+    }
+
+    /* Buttons */
+    .rb-btn {
+        font-size: 0.8125rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .rb-btn-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .rb-btn-group .rb-btn {
+        width: 100%;
+    }
+
+    .rb-add-btn {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .rb-ai-btn {
+        font-size: 0.6875rem;
+    }
+
+    /* Preview scale */
     .rb-resume {
-        transform: scale(0.65);
-        margin: -4rem 0;
+        transform: scale(0.55);
+        margin: -5rem 0;
     }
 
-    .rb-modes {
-        grid-template-columns: 1fr;
+    .rb-preview-header {
+        padding: 0.625rem 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.375rem;
     }
 
+    .rb-preview-actions {
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+
+    /* ATS Gauge */
     .rb-ats-gauge {
         flex-direction: column;
         text-align: center;
+        padding: 0.75rem;
+    }
+
+    .rb-ats-breakdown,
+    .rb-ats-tips-section {
+        padding: 0.875rem;
+    }
+
+    /* Chat area */
+    .rb-chat-msg {
+        max-width: 92%;
+        font-size: 0.8125rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .rb-chat-input {
+        padding: 0.5rem 0.75rem;
+        gap: 0.375rem;
+    }
+
+    .rb-chat-input input {
+        padding: 0.5rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+
+    /* Upload area */
+    .rb-upload-area {
+        padding: 0.75rem;
+    }
+
+    .rb-paste-box {
+        min-height: 150px;
+        padding: 0.875rem;
+        font-size: 0.8125rem;
+    }
+
+    /* Status messages */
+    .rb-status {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Nav */
+    .rb-nav {
+        height: 56px;
+    }
+}
+
+/* Extra Small Phone */
+@media (max-width: 380px) {
+    .rb-hero h1 {
+        font-size: 1.25rem;
+    }
+
+    .rb-form-header h2 {
+        font-size: 0.6875rem;
+    }
+
+    .rb-resume {
+        transform: scale(0.45);
+        margin: -6rem 0;
+    }
+
+    .rb-container {
+        padding: 0 0.5rem;
     }
 }
 

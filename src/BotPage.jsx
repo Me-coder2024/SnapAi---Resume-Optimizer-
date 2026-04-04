@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { callGemini } from './geminiApi'
+import { scrapeLinkedIn, analyzeProfile } from './profileOptimizer'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { supabase as _sb } from './supabase'
@@ -188,6 +189,73 @@ const BotPage = () => {
                 }])
                 setResumeBuilderMode('upload')
                 setTimeout(() => setShowResumeBuilder(true), 800)
+            } else if (aiText.includes('[OPTIMIZE_LINKEDIN_ONLY]')) {
+                // Parse out the JSON payload from the message
+                let payload = { linkedin: '', role: '' };
+                try {
+                    const match = aiText.match(/\[OPTIMIZE_LINKEDIN_ONLY\]\s*(\{.*?\})/s);
+                    if (match && match[1]) {
+                        payload = JSON.parse(match[1]);
+                    }
+                } catch (e) { console.error('Failed to parse LinkedIn payload', e); }
+
+                setMessages(prev => [...prev, {
+                    role: 'ai',
+                    content: '🔄 **Sending your LinkedIn and role data to our Professional Style Profile Optimizer...**\n\nThis usually takes around 20-30 seconds. Hang tight!',
+                    time: aiTime
+                }])
+
+                // Execute the optimization flow completely asynchronously so it doesn't block UI further
+                setTimeout(async () => {
+                    try {
+                        const liText = await scrapeLinkedIn(payload.linkedin);
+                        if (!liText || liText.length < 50) throw new Error("Could not extract meaningful data from the profile.");
+                        
+                        // Pass empty string for resume, pass linkedin text, and target role 
+                        const result = await analyzeProfile(liText, payload.role);
+                        
+                        // Format the output
+                        let formattedOutput = `✅ **Analysis Complete!**\n\n**Overall ATS Score:** ${result.overall_score || 0}/100\n*${result.score_phrase || ''}*\n\n**Summary:** ${result.summary || ''}\n\n`;
+                        
+                        if (result.weaknesses && result.weaknesses.length > 0) {
+                            formattedOutput += `### ⚠️ Critical Weaknesses\n`;
+                            result.weaknesses.forEach(w => formattedOutput += `- ${w}\n`);
+                            formattedOutput += `\n`;
+                        }
+
+                        if (result.rejection_predictors && result.rejection_predictors.length > 0) {
+                            formattedOutput += `### ❌ Rejection Predictors\n`;
+                            result.rejection_predictors.forEach(r => {
+                                if (typeof r === 'object') {
+                                    formattedOutput += `- **${r.reason}**: ${r.fix}\n`;
+                                } else {
+                                    formattedOutput += `- ${r}\n`;
+                                }
+                            });
+                            formattedOutput += `\n`;
+                        }
+
+                        if (result.bullet_point_transformers && result.bullet_point_transformers.length > 0) {
+                            formattedOutput += `### 💡 Suggested Bullet Rewrites\n`;
+                            result.bullet_point_transformers.forEach(b => {
+                                formattedOutput += `**Current:** ${b.weak_text}\n**Suggested:** ${b.suggested_replacement}\n\n`;
+                            });
+                        }
+
+                        setMessages(prev => [...prev, {
+                            role: 'ai',
+                            content: formattedOutput.trim(),
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        }]);
+
+                    } catch (err) {
+                        setMessages(prev => [...prev, {
+                            role: 'ai',
+                            content: `❌ **Optimization Failed:** ${err.message}. Please try again later.`,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        }]);
+                    }
+                }, 100);
             } else {
                 setMessages(prev => [...prev, { role: 'ai', content: aiText, time: aiTime }])
             }

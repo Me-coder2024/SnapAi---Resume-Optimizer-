@@ -7,6 +7,7 @@ import {
     parseResumeText,
     generateSummary,
     chatResumeAssistant,
+    chatResumeEditor,
     fetchGitHubProjects,
     fetchLinkedInProfile,
     generateProjectBullets,
@@ -902,7 +903,7 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
 // ═══════════════════════════════════════
 //  OPTIMIZER SIDE PANEL
 // ═══════════════════════════════════════
-const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) => {
+const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose, onDownload, downloading }) => {
     const [targetRole, setTargetRole] = useState(resumeData?.personal?.targetRole || '')
     const [linkedinUrl, setLinkedinUrl] = useState(resumeData?.personal?.linkedin || '')
     const [analysisResult, setAnalysisResult] = useState(null)
@@ -1067,8 +1068,26 @@ const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) =
             return updated
         })
 
-        // Switch to manual editor
-        setMode('manual')
+        // Auto-categorize skills after applying
+        setTimeout(async () => {
+            try {
+                const currentData = undefined // we'll read from setData callback
+                setData(prev => {
+                    if (prev.skills && prev.skills.length > 0 && (!prev.categorizedSkills || Object.keys(prev.categorizedSkills).length === 0)) {
+                        // Kick off categorization asynchronously
+                        categorizeSkills(prev.skills, targetRole).then(categorized => {
+                            setData(p => ({ ...p, categorizedSkills: categorized }))
+                        }).catch(err => console.error('Auto-categorize failed:', err))
+                    }
+                    return prev
+                })
+            } catch (err) {
+                console.error('Skills categorization error:', err)
+            }
+        }, 100)
+
+        // Switch directly to preview with chat
+        setMode('preview')
     }
 
     const selectedCount = Object.values(selectedItems).filter(Boolean).length
@@ -1358,7 +1377,7 @@ const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) =
                             onClick={handleApply}
                             disabled={selectedCount === 0}
                         >
-                            ✅ Apply Selected ({selectedCount}) & Continue to Editor
+                            {downloading ? 'Building...' : `✅ Apply Selected (${selectedCount}) & Build Resume`}
                         </button>
                     </div>
                 )}
@@ -1371,7 +1390,7 @@ const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) =
 // ═══════════════════════════════════════
 //  UPLOAD / PASTE MODE
 // ═══════════════════════════════════════
-const UploadMode = ({ setData, setMode }) => {
+const UploadMode = ({ setData, setMode, onDownload, downloading }) => {
     const [rawText, setRawText] = useState('')
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState(null)
@@ -1607,6 +1626,8 @@ const UploadMode = ({ setData, setMode }) => {
                     setData={setData}
                     setMode={setMode}
                     onClose={() => setShowOptimizer(false)}
+                    onDownload={onDownload}
+                    downloading={downloading}
                 />
             </>
         )
@@ -1726,6 +1747,130 @@ const UploadMode = ({ setData, setMode }) => {
 // ═══════════════════════════════════════
 //  AI CHAT MODE
 // ═══════════════════════════════════════
+// ═══════════════════════════════════════
+//  PREVIEW CHAT MODE (EDITOR)
+// ═══════════════════════════════════════
+const PreviewChatMode = ({ data, setData, setMode, onDownload, downloading }) => {
+    const [messages, setMessages] = useState([
+        { role: 'ai', content: "👋 **I am your AI Resume Editor!**\n\nYour resume is open on the right. Tell me what you want to change, add, or rewrite, and I'll update it instantly. For example:\n- *\"Rewrite the second bullet in my latest job\"*\n- *\"Add React and Node.js to my skills\"*\n- *\"Make my summary more professional\"*" }
+    ])
+    const [input, setInput] = useState('')
+    const [isTyping, setIsTyping] = useState(false)
+    const chatEndRef = useRef(null)
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messages])
+
+    const handleSend = async () => {
+        if (!input.trim() || isTyping) return
+        const userMsg = input.trim()
+        setInput('')
+        setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+        setIsTyping(true)
+
+        try {
+            const response = await chatResumeEditor(userMsg, data, messages)
+            setMessages(prev => [...prev, { role: 'ai', content: response }])
+
+            if (response.includes('[DOWNLOAD]')) {
+                if (onDownload) onDownload()
+            }
+
+            // Parse any returned resume_data blocks and apply changes
+            const match = response.match(/```resume_data\n([\s\S]*?)\n```/)
+            if (match) {
+                try {
+                    const parsed = JSON.parse(match[1])
+                    if (parsed.section === 'personal' && parsed.data) {
+                        setData(prev => ({ ...prev, personal: { ...prev.personal, ...parsed.data } }))
+                    } else if (parsed.section === 'education' && parsed.data) {
+                        setData(prev => ({ ...prev, education: Array.isArray(parsed.data) ? parsed.data : [parsed.data] }))
+                    } else if (parsed.section === 'experience' && parsed.data) {
+                        setData(prev => ({ ...prev, experience: Array.isArray(parsed.data) ? parsed.data : [parsed.data] }))
+                    } else if (parsed.section === 'projects' && parsed.data) {
+                        setData(prev => ({ ...prev, projects: Array.isArray(parsed.data) ? parsed.data : [parsed.data] }))
+                    } else if (parsed.section === 'skills' && parsed.data) {
+                        const newSkills = Array.isArray(parsed.data) ? parsed.data : [];
+                        setData(prev => ({ ...prev, skills: newSkills }))
+                        categorizeSkills(newSkills, data.personal?.targetRole || '').then(cat => {
+                            setData(prev => ({ ...prev, categorizedSkills: cat }))
+                        }).catch(err => console.error('Auto-categorize in chat failed:', err))
+                    } else if (parsed.section === 'summary' && parsed.data) {
+                        setData(prev => ({ ...prev, summary: typeof parsed.data === 'string' ? parsed.data : parsed.data.summary || parsed.data.text || '' }))
+                    }
+                } catch (e) {
+                    console.error('Failed to parse editor JSON', e);
+                }
+            }
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'ai', content: `❌ Error: ${err.message}. Please try again.` }])
+        }
+        setIsTyping(false)
+    }
+
+    // Format markdown
+    const formatMessage = (msg) => {
+        if (msg.role !== 'ai') return msg.content
+        return msg.content
+            .replace(/```resume_data[\s\S]*?```/g, '')
+            .trim()
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br/>')
+            .replace(/^(\d+)\.\s/gm, '<br/><strong>$1.</strong> ')
+            .replace(/^[-•]\s/gm, '<br/>• ')
+    }
+
+    return (
+        <div className="rb-form-panel">
+            <div className="rb-form-header">
+                <h2>🖋️ AI Editor</h2>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={onDownload}>
+                        📥 PDF (-20c)
+                    </button>
+                    <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode('manual')}>
+                        Manual Form →
+                    </button>
+                </div>
+            </div>
+            <div className="rb-chat-area">
+                {messages.map((msg, i) => {
+                    const displayContent = formatMessage(msg);
+                    if (!displayContent) return null;
+                    return (
+                        <div key={i} className={`rb-chat-msg ${msg.role === 'ai' ? 'ai' : 'user'}`}>
+                            {msg.role === 'ai'
+                                ? <span dangerouslySetInnerHTML={{ __html: displayContent }} />
+                                : displayContent
+                            }
+                        </div>
+                    )
+                })}
+                {isTyping && (
+                    <div className="rb-chat-msg ai" style={{ fontStyle: 'italic', color: '#63636E' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="rb-spinner" /> Updating...
+                        </span>
+                    </div>
+                )}
+                <div ref={chatEndRef} />
+            </div>
+            <div className="rb-chat-input">
+                <input
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSend()}
+                    placeholder="E.g., Rewrite my second project's bullet points..."
+                />
+                <button onClick={handleSend} disabled={isTyping || !input.trim()}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </div>
+    )
+}
+
 const ChatMode = ({ data, setData, setMode, onDownload, downloading }) => {
     const [messages, setMessages] = useState([
         { role: 'ai', content: "👋 **Welcome to the AI Resume Builder!**\n\nI'll guide you step-by-step to create a polished, professional resume. Let's get started!\n\n**Step 1 — Personal Information**\n\nPlease share the following details:\n1. **Full Name**\n2. **Email Address**\n3. **Phone Number**\n4. **LinkedIn Profile URL** (if you have one)\n5. **GitHub Profile URL** (if applicable)\n\nYou can share all of them at once, or one at a time — whatever's comfortable!" }
@@ -2153,8 +2298,9 @@ export default function ResumeBuilderPage() {
                     <div className={`rb-main ${isEmbed ? 'rb-main-embed' : ''}`}>
                         {/* Left: Form / Chat / Upload */}
                         {mode === 'manual' && <ManualForm data={resumeData} setData={setResumeData} onDownload={handleDownloadPdf} downloading={isDownloading} />}
-                        {mode === 'upload' && <UploadMode setData={setResumeData} setMode={setMode} />}
+                        {mode === 'upload' && <UploadMode setData={setResumeData} setMode={setMode} onDownload={handleDownloadPdf} downloading={isDownloading} />}
                         {mode === 'chat' && <ChatMode data={resumeData} setData={setResumeData} setMode={setMode} onDownload={handleDownloadPdf} downloading={isDownloading} />}
+                        {mode === 'preview' && <PreviewChatMode data={resumeData} setData={setResumeData} setMode={setMode} onDownload={handleDownloadPdf} downloading={isDownloading} />}
 
                         {/* Right: Live Preview — visually hidden in embed mode, but kept in DOM for printing */}
                         <div className={`rb-preview-panel ${isEmbed ? 'rb-preview-print-only' : ''}`}>
@@ -2170,9 +2316,6 @@ export default function ResumeBuilderPage() {
                                             )}
                                             <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode(null)}>
                                                 ← Modes
-                                            </button>
-                                            <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={handleDownloadPdf} disabled={isDownloading}>
-                                                {isDownloading ? '⏳ Optimizing...' : '📥 PDF (-20c)'}
                                             </button>
                                         </div>
                                     </div>

@@ -33,9 +33,14 @@ Do not add any other text when replying with this phrase.
 [LAUNCH_RESUME_BUILDER]
 Do not add any other text when replying with this phrase.
 
-3. If the user says they ALREADY HAVE a resume and want to "modify my resume", "correct my resume", "boost ATS", "improve ATS score", "optimize my resume", "update my resume", "fix my resume", "review my resume", "enhance my resume", "edit my resume", "paste my resume", "upload resume", or anything related to MODIFYING, CORRECTING, BOOSTING, REVIEWING, or IMPROVING an EXISTING resume or CV, you must reply EXACTLY with this secret phrase:
-[LAUNCH_RESUME_UPLOAD]
-Do not add any other text when replying with this phrase.
+3. If the user says they ALREADY HAVE a resume and want to "modify my resume", "correct my resume", "boost ATS", "improve ATS score", "optimize my resume", "update my resume", "fix my resume", "review my resume", "enhance my resume", "edit my resume", "paste my resume", "upload resume", or anything related to MODIFYING, CORRECTING, BOOSTING, REVIEWING, or IMPROVING an EXISTING resume or CV, you MUST follow this strict multi-step funnel:
+   STEP 3A: Do NOT launch any tools yet. First ask: "I'd love to help optimize your resume! Could you share your **LinkedIn Profile URL** and the **Target Job Role** you are aiming for?"
+   STEP 3B: Once they provide the LinkedIn URL and role, ask: "Got it! Would you also like to **upload your existing resume PDF** for me to scan alongside your LinkedIn profile, or should I just optimize based on your LinkedIn? (Reply 'upload' or 'just linkedin')"
+   STEP 3C: If they want to upload their resume, you MUST reply EXACTLY with this secret phrase and NOTHING ELSE:
+   [LAUNCH_RESUME_UPLOAD]
+   STEP 3D: If they say "just linkedin", "no upload", or decline uploading, you MUST reply EXACTLY with this secret phrase containing their data:
+   [OPTIMIZE_LINKEDIN_ONLY] {"linkedin": "their_linkedin_url", "role": "their_target_role"}
+   Do not add any other text when replying with these secret phrases.
 
 For all other queries, answer normally and concisely (2-3 sentences max).`;
 

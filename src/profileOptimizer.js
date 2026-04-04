@@ -11,7 +11,18 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // ── Prompts (from app.py) ──
 
-const ANALYSIS_PROMPT = `You are a world-class career strategist who has reviewed 10,000+ profiles and resumes. You have deep expertise in personal branding, ATS systems, recruiter psychology, and industry best practices.
+const ANALYSIS_PROMPT = `You are a professional resume optimizer mapping to the following rulebook:
+ONLY improve clarity, grammar, and impact.
+DO NOT invent metrics, achievements, or technologies.
+DO NOT add information not present in the original text.
+If improvement requires missing data, suggest it separately instead of adding it.
+Preserve original meaning at all costs.
+
+Focus strictly on:
+1. Keyword matching vs job role
+2. Missing skills detection
+3. Weak verbs detection
+4. Bullet length optimization
 
 {role_context}
 
@@ -19,17 +30,16 @@ CRITICAL RULES:
 - DO NOT force changes on everything. If a bullet point or section is already decent, LEAVE IT ALONE.
 - ONLY flag things that are genuinely weak, non-ATS friendly, or missing critical keywords that directly affect ATS parsing and scoring.
 - CRISPY & CONCISE: Ensure all bullet point rewrites and suggestions are short, punchy statements (max 1-2 lines). Avoid long, verbose, or flowery descriptions.
-- If something is already good, acknowledge it and move on — don't suggest improvements for already-strong sections.
-- NEVER USE PLACEHOLDERS like 'X', 'Y', 'Z', '[Number]', or '%'. When rewriting bullet points to be quantified, you MUST use realistic estimated numbers (e.g., 'saved $10,000', 'increased by 25%', 'led team of 5') rather than generic variables.
-- Be SPECIFIC: reference actual text, bullet points, or sections from the profile. Never say generic things like "add more metrics" without explaining exactly what to change.
+- DO NOT reformat or rewrite Technical Skills sections. Only suggest adding missing keywords, never reorganize the skills formatting.
+- NEVER USE PLACEHOLDERS like 'X', 'Y', 'Z', '[Number]', or '%'. When rewriting bullet points, you MUST only improve wording or use realistic, honest estimates based strictly on the original text context.
+- Be SPECIFIC: reference actual text, bullet points, or sections from the profile.
 - If the profile is reasonably strong for the target role, give it a high score. Do not nitpick or manufacture weaknesses.
-- Evaluate everything through the strict lens of the target job role and ATS impact.
 
 Think like a hiring manager for this specific role. Before generating your response, reason through:
 
 1. ROLE FIT: Does this profile demonstrate clear qualification for the target role?
 2. FIRST IMPRESSION: What story does the headline/summary tell in 5 seconds?
-3. IMPACT EVIDENCE: Are achievements quantified with real numbers?
+3. IMPACT EVIDENCE: Are achievements quantified realistically based on original text?
 4. KEYWORD GAPS: What specific keywords for this role are missing?
 5. HIDDEN WEAKNESSES: What subtle red flags would a recruiter catch?
 6. WHAT'S ACTUALLY GOOD: What sections are already strong and need no changes?
@@ -95,7 +105,7 @@ Return your analysis as JSON with EXACTLY this structure (no markdown, just raw 
     }
   ],
   "missing_sections": ["<only sections that are actually expected for this role>"],
-  "keyword_suggestions": ["<keywords specifically relevant to the target role>"],
+  "keyword_suggestions": ["<TOP 3-5 most critical keywords specifically relevant and missing>"],
   "bullet_point_transformers": [
     {
       "weak_text": "<exact passive or generic bullet point>",
@@ -120,10 +130,12 @@ IMPORTANT:
 - You MUST populate 'original_text' AND 'suggested_replacement' for all suggestions.
 - The 'original_text' and 'weak_text' MUST be copied EXACTLY character-for-character from the resume. Do NOT paraphrase, shorten, or reword the original text.
 - 'suggested_replacement' must be concise: 1-2 lines MAX. No long paragraphs.
+- Each experience/project description should have EXACTLY 2-3 bullet points (max 3-4 if truly necessary). NOT more.
+- NEVER output bracket suggestions like "[Number]", "[Metric]", "[X]" or "[Y]". You MUST use hypothetical but realistic numbers to make the description perfect (e.g., "reduced latency by 40%", "served 500+ users", "processed 10,000 requests daily").
 - Set needs_improvement to false for categories that are already strong (score >= 75).
 - Only include suggestions for things that are genuinely weak or harmful to ATS parsing. DO NOT invent suggestions just to fill the array.
 - For bullet_point_transformers, find ONLY extremely weak, generic, or passive bullet points. IF ALL BULLET POINTS ARE DECENT, LEAVE THE ARRAY COMPLETELY EMPTY. Do not force rewrites on good content. Max 2-3 transformers.
-- Suggested replacement bullets should each be 2-3 concise bullet points per experience/project — NOT more.
+- DO NOT touch or reformat the Technical Skills section. Only suggest adding missing keywords.
 - For rejection_predictors, only predict deal-breakers. If the profile is good, leave it EMPTY.
 
 Here is the resume content to analyze:

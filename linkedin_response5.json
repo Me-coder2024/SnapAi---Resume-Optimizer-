@@ -1,6 +1,0 @@
-{
-  "error": {
-    "type": "record-not-found",
-    "message": "Actor with this name was not found"
-  }
-}

@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperature = 0.4, maxTokens = 1024) {
+async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperature = 0.4, maxTokens = 1024, isJSON = false) {
     const model = genAI.getGenerativeModel({
         model: modelName, 
     });
@@ -16,7 +16,8 @@ async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperat
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
             temperature,
-            maxOutputTokens: maxTokens
+            maxOutputTokens: maxTokens,
+            ...(isJSON && { responseMimeType: "application/json" })
         }
     });
     
@@ -34,25 +35,18 @@ function cleanJSON(text) {
  */
 export async function enhanceExperience(experienceText, targetRole = '') {
     const roleContext = targetRole ? `\nThe resume is targeting a ${targetRole} role. Weave in 2-3 keywords relevant to this role naturally.` : '';
-    const prompt = `You are a resume writer who writes like a real human, not AI. Rewrite this experience into 3-4 bullet points.
+    const prompt = `You are a resume writer who writes like a real human, not AI. Rewrite this experience into EXACTLY 3 to 4 bullet points. NOT MORE, NOT LESS.
 
-THE CORE FORMULA — every bullet must follow: Did [action] → which moved [metric] from [X] to [Y]
-
-RULES:
+CRITICAL RULES:
 1. One bullet = one impact. Never combine two achievements in one bullet.
-2. Lead with a strong verb, end with a number. Use verbs like: Engineered, Developed, Built, Designed, Implemented, Integrated, Optimised, Reduced, Led, Founded, Owned, Delivered, Automated. NEVER repeat the same verb twice.
-3. Name the actual technology inside the bullet — don't say "built a backend", say "built a Node.js/Express backend". ATS scans bullet text for tech keywords.
-4. Max 2 lines per bullet. If it's longer, cut it.
-5. Show ownership, not participation. "Sole developer for" > "Led development of" > "Participated in building".
-6. Every bullet MUST have exactly ONE number — use whichever type fits:
-   - Volume: processed 1,000+ daily orders
-   - Speed/time saved: reduced setup time from 2 hours to 15 minutes
-   - Scale: serving 100+ users / 8+ clients
-   - Percentage change: improved load time by 65%
-7. If you don't have exact numbers, use honest estimates with "~" or "+" — that's fine and ATS-friendly.
-8. Do NOT use bold, asterisks, or any markdown formatting. Plain text only.
-9. Each bullet must be a COMPLETE sentence — never truncate mid-thought.
-10. HUMAN CHECK: if the bullet sounds like it could describe anyone's job, rewrite it to be more specific.
+2. Lead with a strong verb, end with a realistic number. 
+3. NEVER USE BRACKETS OR VARIABLES. Do NOT write "[Number]", "X", "Y", or "[Metric]". You MUST invent hypothetical but realistic numbers (e.g. 5+, 20%, 3 months) to make the description perfect.
+4. Name the actual technology inside the bullet — don't say "built a backend", say "built a Node.js/Express backend".
+5. Max 1-2 lines per bullet. If it's longer, cut it. Be CRISPY.
+6. Every bullet MUST have exactly ONE number (e.g. processed 1,000+ daily orders, reduced setup time by 65%, serving 100+ users).
+7. Do NOT use bold, asterisks, or any markdown formatting. Plain text only.
+8. Each bullet must be a COMPLETE sentence.
+9. Do NOT reformat technical skills sections. Only process experience descriptions.
 ${roleContext}
 
 Experience:
@@ -184,7 +178,7 @@ ${rawText}`
     // Attempt parsing with retries
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 4096)
+            const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 8192, true)
             
             // Try multiple JSON extraction strategies
             let jsonStr = text.trim()
@@ -639,6 +633,65 @@ Be warm, encouraging, and professional. Use emojis sparingly (✅, 📝, 🎓, �
         generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 1024
+        }
+    });
+
+    const result = await chat.sendMessage(userMessage);
+    return result.response.text().trim();
+}
+
+export async function chatResumeEditor(userMessage, resumeData, history = []) {
+    const systemPrompt = `You are an AI Resume Editor. The user is currently previewing their resume and wants to make specific changes.
+
+You have access to their current resume data (provided below).
+Listen to the user's request (e.g., "add a bullet point to my second project", "change my target role to Software Engineer", "rewrite my summary").
+
+If the request is a valid resume modification, you MUST:
+1. Make the necessary update.
+2. Output a markdown block with the \`resume_data\` tag containing the exact JSON structure for the section you modified.
+
+FORMAT EXPECTATIONS FOR 'resume_data' OUTPUT:
+- If modifying 'personal', return: {"section": "personal", "data": {"name": "...", "targetRole": "...", "email": "...", "phone": "...", "linkedin": "...", "github": "..."}}
+- If modifying 'education', return the FULL UPDATED ARRAY: {"section": "education", "data": [{"institution": "...", "degree": "...", "date": "...", "gpa": "..."}]}
+- If modifying 'experience', return the FULL UPDATED ARRAY: {"section": "experience", "data": [{"company": "...", "title": "...", "date": "...", "location": "...", "description": "...", "bullets": ["..."]}]}
+- If modifying 'projects', return the FULL UPDATED ARRAY: {"section": "projects", "data": [{"name": "...", "technologies": "...", "link": "...", "description": "...", "bullets": ["..."]}]}
+- If modifying 'skills', return the FULL UPDATED ARRAY: {"section": "skills", "data": ["React", "Python", ...]}
+- If modifying 'summary', return the string: {"section": "summary", "data": "Updated summary text..."}
+
+CRITICAL RULES:
+- When updating arrays (experience, projects, education, skills), ALWAYS return the ENTIRE updated array, not just the single item changed.
+- For Experience and Projects, enforce that each description should have EXACTLY 3-4 bullet points. No bracket placeholders like [Number] or [Metric] - invent hypothetical realistic numbers if needed to make the description perfect.
+- Provide a brief, friendly confirmation message to the user explaining what you updated.
+- NEVER output raw JSON outside the \`resume_data\` block.
+- If the user explicitly asks to download, build, or print their resume, you MUST include the exact string \`[DOWNLOAD]\` in your response message to trigger the UI download button.
+
+CURRENT RESUME DATA:
+${JSON.stringify(resumeData, null, 2)}
+`;
+
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: systemPrompt,
+    });
+
+    const chatHistory = [];
+    for (const msg of history) {
+        let currentRole = msg.role === 'ai' ? 'model' : 'user';
+        if (chatHistory.length === 0 && currentRole === 'model') {
+            chatHistory.push({ role: 'user', parts: [{ text: "Hello" }] });
+        }
+        if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === currentRole) {
+            chatHistory[chatHistory.length - 1].parts[0].text += "\n\n" + msg.content;
+            continue;
+        }
+        chatHistory.push({ role: currentRole, parts: [{ text: msg.content }] });
+    }
+
+    const chat = model.startChat({
+        history: chatHistory,
+        generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 2048
         }
     });
 

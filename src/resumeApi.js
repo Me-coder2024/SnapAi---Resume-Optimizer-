@@ -184,7 +184,7 @@ ${rawText}`
     // Attempt parsing with retries
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const text = await callGeminiResume(prompt, 'gemini-2.0-flash', 0.1, 4096)
+            const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 4096)
             
             // Try multiple JSON extraction strategies
             let jsonStr = text.trim()

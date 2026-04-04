@@ -7,20 +7,30 @@ import { supabase } from './supabase';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperature = 0.4, maxTokens = 1024) {
+async function callGeminiResume(prompt, modelName = 'gemini-2.0-flash', temperature = 0.4, maxTokens = 1024) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash", 
+        model: modelName, 
     });
 
-    const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-            temperature,
-            maxOutputTokens: maxTokens
-        }
-    });
-    
-    return result.response.text().trim();
+    // 30-second timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens
+            }
+        });
+        clearTimeout(timeoutId);
+        return result.response.text().trim();
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Request timed out (30s). Please try again.');
+        throw err;
+    }
 }
 
 function cleanJSON(text) {
@@ -164,7 +174,7 @@ The required JSON structure is:
     "github": "GitHub profile URL if any",
     "summary": "Professional summary if present",
     "education": [{"institution": "University Name", "degree": "Degree Title", "date": "Date Range", "gpa": "GPA if mentioned"}],
-    "experience": [{"company": "Company Name", "title": "Job Title", "date": "Date Range", "location": "Location", "bullets": ["bullet point 1", "bullet point 2"]}],
+    "experience": [{"company": "Company Name", "title": "Job Title", "date": "Date Range", "location": "Location", "bullets": ["bullet 1", "bullet 2", "bullet 3"]}],
     "projects": [{"name": "Project Name", "description": "Project Description", "technologies": "Tech used", "link": "Project Link if any", "bullets": ["bullet 1", "bullet 2"]}],
     "skills": ["Skill 1", "Skill 2"],
     "certifications": ["Certification 1"]
@@ -174,6 +184,8 @@ IMPORTANT RULES:
 - If a field is not found in the resume, use an empty string "" or empty array [].
 - Extract ALL education entries, ALL experience entries, ALL projects, and ALL skills.
 - For skills, split comma-separated lists into individual items.
+- Each experience entry should have EXACTLY 2-3 bullet points (max 4 only if truly needed). Keep bullets SHORT and punchy — max 1-2 lines each.
+- Each project should have EXACTLY 2 bullet points. Concise and impactful.
 - Output ONLY the JSON object. No markdown, no backticks, no explanation.
 
 Raw Resume Text:
@@ -182,7 +194,7 @@ ${rawText}`
     // Attempt parsing with retries
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            const text = await callGeminiResume(prompt, 'gemini-2.5-flash', 0.1, 4096)
+            const text = await callGeminiResume(prompt, 'gemini-2.0-flash', 0.1, 4096)
             
             // Try multiple JSON extraction strategies
             let jsonStr = text.trim()

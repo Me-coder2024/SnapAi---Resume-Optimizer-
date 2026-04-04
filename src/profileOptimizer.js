@@ -118,9 +118,12 @@ Return your analysis as JSON with EXACTLY this structure (no markdown, just raw 
 
 IMPORTANT:
 - You MUST populate 'original_text' AND 'suggested_replacement' for all suggestions.
+- The 'original_text' and 'weak_text' MUST be copied EXACTLY character-for-character from the resume. Do NOT paraphrase, shorten, or reword the original text.
+- 'suggested_replacement' must be concise: 1-2 lines MAX. No long paragraphs.
 - Set needs_improvement to false for categories that are already strong (score >= 75).
 - Only include suggestions for things that are genuinely weak or harmful to ATS parsing. DO NOT invent suggestions just to fill the array.
-- For bullet_point_transformers, find ONLY extremely weak, generic, or passive bullet points. IF ALL BULLET POINTS ARE DECENT, LEAVE THE ARRAY COMPLETELY EMPTY. Do not force rewrites on good content.
+- For bullet_point_transformers, find ONLY extremely weak, generic, or passive bullet points. IF ALL BULLET POINTS ARE DECENT, LEAVE THE ARRAY COMPLETELY EMPTY. Do not force rewrites on good content. Max 2-3 transformers.
+- Suggested replacement bullets should each be 2-3 concise bullet points per experience/project — NOT more.
 - For rejection_predictors, only predict deal-breakers. If the profile is good, leave it EMPTY.
 
 Here is the resume content to analyze:

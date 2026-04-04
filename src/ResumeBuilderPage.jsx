@@ -974,54 +974,58 @@ const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) =
     }
 
     const handleApply = () => {
+        // Fuzzy match helper: returns true if strings are similar enough
+        const fuzzyMatch = (a, b) => {
+            if (!a || !b) return false
+            const normalize = s => s.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+            const na = normalize(a), nb = normalize(b)
+            if (na === nb) return true
+            if (na.length > 10 && nb.length > 10) {
+                // Check if one contains a significant portion of the other
+                return na.includes(nb.slice(0, Math.floor(nb.length * 0.6))) ||
+                       nb.includes(na.slice(0, Math.floor(na.length * 0.6)))
+            }
+            return false
+        }
+
         setData(prev => {
             const updated = { ...prev }
 
             // Apply bullet point rewrites
             ;(analysisResult?.bullet_point_transformers || []).forEach((bpt, i) => {
-                if (!selectedItems[`bpt-${i}`]) return
-                // Search and replace in experience bullets
+                if (!selectedItems[`bpt-${i}`] || !bpt.weak_text || !bpt.suggested_replacement) return
                 updated.experience = (updated.experience || []).map(exp => ({
                     ...exp,
                     bullets: (exp.bullets || []).map(b =>
-                        b.trim().toLowerCase() === bpt.weak_text?.trim().toLowerCase()
-                            ? bpt.suggested_replacement
-                            : b
+                        fuzzyMatch(b, bpt.weak_text) ? bpt.suggested_replacement : b
                     )
                 }))
-                // Search and replace in project bullets
                 updated.projects = (updated.projects || []).map(proj => ({
                     ...proj,
                     bullets: (proj.bullets || []).map(b =>
-                        b.trim().toLowerCase() === bpt.weak_text?.trim().toLowerCase()
-                            ? bpt.suggested_replacement
-                            : b
+                        fuzzyMatch(b, bpt.weak_text) ? bpt.suggested_replacement : b
                     )
                 }))
             })
 
             // Apply suggestion rewrites
             ;(analysisResult?.suggestions || []).forEach((sug, i) => {
-                if (!selectedItems[`sug-${i}`] || !sug.suggested_replacement) return
-                // Try to find and replace original_text in bullets
-                if (sug.original_text) {
-                    const origLower = sug.original_text.trim().toLowerCase()
-                    updated.experience = (updated.experience || []).map(exp => ({
-                        ...exp,
-                        bullets: (exp.bullets || []).map(b =>
-                            b.trim().toLowerCase() === origLower ? sug.suggested_replacement : b
-                        )
-                    }))
-                    updated.projects = (updated.projects || []).map(proj => ({
-                        ...proj,
-                        bullets: (proj.bullets || []).map(b =>
-                            b.trim().toLowerCase() === origLower ? sug.suggested_replacement : b
-                        )
-                    }))
-                    // Check summary
-                    if (updated.summary?.trim().toLowerCase() === origLower) {
-                        updated.summary = sug.suggested_replacement
-                    }
+                if (!selectedItems[`sug-${i}`] || !sug.suggested_replacement || !sug.original_text) return
+                updated.experience = (updated.experience || []).map(exp => ({
+                    ...exp,
+                    bullets: (exp.bullets || []).map(b =>
+                        fuzzyMatch(b, sug.original_text) ? sug.suggested_replacement : b
+                    )
+                }))
+                updated.projects = (updated.projects || []).map(proj => ({
+                    ...proj,
+                    bullets: (proj.bullets || []).map(b =>
+                        fuzzyMatch(b, sug.original_text) ? sug.suggested_replacement : b
+                    )
+                }))
+                // Check summary
+                if (fuzzyMatch(updated.summary, sug.original_text)) {
+                    updated.summary = sug.suggested_replacement
                 }
             })
 
@@ -1411,7 +1415,7 @@ const UploadMode = ({ setData, setMode }) => {
             // Use Gemini to extract text from the file
             const { GoogleGenerativeAI } = await import('@google/generative-ai')
             const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
             const result = await model.generateContent([
                 {

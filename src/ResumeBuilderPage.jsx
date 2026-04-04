@@ -16,6 +16,7 @@ import {
     saveResumeData,
     loadResumeData
 } from './resumeApi'
+import { analyzeProfile, scrapeLinkedIn, compareProfiles, improveText } from './profileOptimizer'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import AuthModal from './components/ui/AuthModal'
@@ -899,6 +900,467 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
 }
 
 // ═══════════════════════════════════════
+//  OPTIMIZER SIDE PANEL
+// ═══════════════════════════════════════
+const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) => {
+    const [targetRole, setTargetRole] = useState(resumeData?.personal?.targetRole || '')
+    const [linkedinUrl, setLinkedinUrl] = useState(resumeData?.personal?.linkedin || '')
+    const [analysisResult, setAnalysisResult] = useState(null)
+    const [compareResult, setCompareResult] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const [stage, setStage] = useState('') // current loading stage
+    const [selectedItems, setSelectedItems] = useState({})
+    const [error, setError] = useState(null)
+
+    const toggleItem = (key) => {
+        setSelectedItems(prev => ({ ...prev, [key]: !prev[key] }))
+    }
+
+    const handleAnalyze = async () => {
+        if (!targetRole.trim()) return
+        setLoading(true)
+        setError(null)
+        setAnalysisResult(null)
+        setCompareResult(null)
+
+        try {
+            // Step 1: Analyze resume
+            setStage('Analyzing your resume...')
+            const analysis = await analyzeProfile(resumeText, targetRole)
+            setAnalysisResult(analysis)
+
+            // Auto-select all critical and important suggestions
+            const autoSelected = {}
+            ;(analysis.suggestions || []).forEach((s, i) => {
+                if (s.severity === 'critical' || s.severity === 'important') {
+                    autoSelected[`sug-${i}`] = true
+                }
+            })
+            ;(analysis.bullet_point_transformers || []).forEach((_, i) => {
+                autoSelected[`bpt-${i}`] = true
+            })
+            ;(analysis.keyword_suggestions || []).forEach((_, i) => {
+                autoSelected[`kw-${i}`] = true
+            })
+            setSelectedItems(autoSelected)
+
+            // Step 2: LinkedIn comparison (if URL provided)
+            if (linkedinUrl && linkedinUrl.includes('linkedin.com/in/')) {
+                setStage('Scraping LinkedIn profile...')
+                try {
+                    const { text: liText } = await scrapeLinkedIn(linkedinUrl)
+                    if (liText) {
+                        setStage('Comparing profiles...')
+                        const comparison = await compareProfiles(resumeText, liText, targetRole)
+                        setCompareResult(comparison)
+                        // Auto-select LinkedIn additions
+                        ;(comparison.add_to_resume || []).forEach((_, i) => {
+                            autoSelected[`li-${i}`] = true
+                        })
+                        setSelectedItems({ ...autoSelected })
+                    }
+                } catch (liErr) {
+                    console.error('LinkedIn scrape error:', liErr)
+                    // Non-fatal — continue with resume-only analysis
+                }
+            }
+
+            setStage('')
+        } catch (err) {
+            console.error('Analysis error:', err)
+            setError(err.message || 'Analysis failed. Please try again.')
+        }
+        setLoading(false)
+    }
+
+    const handleApply = () => {
+        setData(prev => {
+            const updated = { ...prev }
+
+            // Apply bullet point rewrites
+            ;(analysisResult?.bullet_point_transformers || []).forEach((bpt, i) => {
+                if (!selectedItems[`bpt-${i}`]) return
+                // Search and replace in experience bullets
+                updated.experience = (updated.experience || []).map(exp => ({
+                    ...exp,
+                    bullets: (exp.bullets || []).map(b =>
+                        b.trim().toLowerCase() === bpt.weak_text?.trim().toLowerCase()
+                            ? bpt.suggested_replacement
+                            : b
+                    )
+                }))
+                // Search and replace in project bullets
+                updated.projects = (updated.projects || []).map(proj => ({
+                    ...proj,
+                    bullets: (proj.bullets || []).map(b =>
+                        b.trim().toLowerCase() === bpt.weak_text?.trim().toLowerCase()
+                            ? bpt.suggested_replacement
+                            : b
+                    )
+                }))
+            })
+
+            // Apply suggestion rewrites
+            ;(analysisResult?.suggestions || []).forEach((sug, i) => {
+                if (!selectedItems[`sug-${i}`] || !sug.suggested_replacement) return
+                // Try to find and replace original_text in bullets
+                if (sug.original_text) {
+                    const origLower = sug.original_text.trim().toLowerCase()
+                    updated.experience = (updated.experience || []).map(exp => ({
+                        ...exp,
+                        bullets: (exp.bullets || []).map(b =>
+                            b.trim().toLowerCase() === origLower ? sug.suggested_replacement : b
+                        )
+                    }))
+                    updated.projects = (updated.projects || []).map(proj => ({
+                        ...proj,
+                        bullets: (proj.bullets || []).map(b =>
+                            b.trim().toLowerCase() === origLower ? sug.suggested_replacement : b
+                        )
+                    }))
+                    // Check summary
+                    if (updated.summary?.trim().toLowerCase() === origLower) {
+                        updated.summary = sug.suggested_replacement
+                    }
+                }
+            })
+
+            // Apply missing keywords to skills
+            ;(analysisResult?.keyword_suggestions || []).forEach((kw, i) => {
+                if (!selectedItems[`kw-${i}`]) return
+                if (!(updated.skills || []).some(s => s.toLowerCase() === kw.toLowerCase())) {
+                    updated.skills = [...(updated.skills || []), kw]
+                }
+            })
+
+            // Apply LinkedIn additions
+            if (compareResult) {
+                ;(compareResult.add_to_resume || []).forEach((item, i) => {
+                    if (!selectedItems[`li-${i}`] || !item.suggested_text) return
+                    const section = (item.section || '').toLowerCase()
+                    if (section.includes('skill')) {
+                        updated.skills = [...(updated.skills || []), item.suggested_text]
+                    } else if (section.includes('experience')) {
+                        // Add as a bullet to the first experience entry
+                        if (updated.experience?.length) {
+                            updated.experience = updated.experience.map((exp, idx) =>
+                                idx === 0 ? { ...exp, bullets: [...(exp.bullets || []), item.suggested_text] } : exp
+                            )
+                        }
+                    }
+                })
+            }
+
+            // Set target role
+            if (targetRole) {
+                updated.personal = { ...(updated.personal || {}), targetRole }
+            }
+
+            return updated
+        })
+
+        // Switch to manual editor
+        setMode('manual')
+    }
+
+    const selectedCount = Object.values(selectedItems).filter(Boolean).length
+
+    const getScoreColor = (score) => {
+        if (score >= 80) return '#22C55E'
+        if (score >= 60) return '#F59E0B'
+        return '#EF4444'
+    }
+
+    const getSeverityStyle = (severity) => {
+        if (severity === 'critical') return { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.25)', color: '#EF4444' }
+        if (severity === 'important') return { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)', color: '#F59E0B' }
+        return { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.25)', color: '#3B82F6' }
+    }
+
+    return (
+        <>
+            <div className="rb-optimizer-overlay" onClick={onClose} />
+            <div className="rb-optimizer-panel">
+                <div className="rb-optimizer-header">
+                    <h3>✨ Professional Optimizer</h3>
+                    <button className="rb-optimizer-close" onClick={onClose}>✕</button>
+                </div>
+
+                <div className="rb-optimizer-body">
+                    {/* Input Section */}
+                    {!analysisResult && (
+                        <div className="rb-optimizer-input-section">
+                            <div className="rb-field" style={{ marginBottom: '0.75rem' }}>
+                                <label>🎯 Target Job Role <span style={{ color: '#EF4444' }}>*</span></label>
+                                <input
+                                    value={targetRole}
+                                    onChange={e => setTargetRole(e.target.value)}
+                                    placeholder="e.g. Full Stack Developer, Data Scientist..."
+                                />
+                            </div>
+                            <div className="rb-field" style={{ marginBottom: '1rem' }}>
+                                <label>🔗 LinkedIn URL <span style={{ color: '#63636E', fontWeight: 400 }}>(optional)</span></label>
+                                <input
+                                    value={linkedinUrl}
+                                    onChange={e => setLinkedinUrl(e.target.value)}
+                                    placeholder="https://linkedin.com/in/your-profile"
+                                />
+                            </div>
+                            <button
+                                className="rb-btn rb-btn-accent"
+                                style={{ width: '100%' }}
+                                onClick={handleAnalyze}
+                                disabled={loading || !targetRole.trim()}
+                            >
+                                {loading ? (
+                                    <><span className="rb-spinner"></span> {stage}</>
+                                ) : (
+                                    '🔍 Analyze Resume'
+                                )}
+                            </button>
+                            {error && <div className="rb-status error" style={{ marginTop: '0.75rem' }}>{error}</div>}
+                        </div>
+                    )}
+
+                    {/* Results Section */}
+                    {analysisResult && (
+                        <div className="rb-optimizer-results">
+                            {/* Overall Score */}
+                            <div className="rb-opt-score-card">
+                                <div className="rb-opt-score-circle" style={{
+                                    '--opt-color': getScoreColor(analysisResult.overall_score),
+                                    '--opt-progress': `${(analysisResult.overall_score / 100) * 360}deg`
+                                }}>
+                                    <div className="rb-opt-score-inner">
+                                        <span className="rb-opt-score-num" style={{ color: getScoreColor(analysisResult.overall_score) }}>
+                                            {analysisResult.overall_score}
+                                        </span>
+                                        <span className="rb-opt-score-label">SCORE</span>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: '0.8125rem', color: '#A1A1A9', textAlign: 'center', lineHeight: 1.4 }}>
+                                    {analysisResult.summary}
+                                </p>
+                            </div>
+
+                            {/* Category Scores */}
+                            <div className="rb-opt-section">
+                                <h4>📊 Category Scores</h4>
+                                {(analysisResult.categories || []).map((cat, i) => (
+                                    <div key={i} className="rb-opt-cat-row">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#EDEDEF' }}>{cat.name}</span>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: getScoreColor(cat.score) }}>{cat.score}</span>
+                                        </div>
+                                        <div style={{ height: 4, background: '#1C1C22', borderRadius: 2, overflow: 'hidden' }}>
+                                            <div style={{
+                                                height: '100%', borderRadius: 2, width: `${cat.score}%`,
+                                                background: getScoreColor(cat.score), transition: 'width 0.8s ease'
+                                            }} />
+                                        </div>
+                                        {cat.needs_improvement && (
+                                            <p style={{ fontSize: '0.6875rem', color: '#63636E', marginTop: '0.25rem', lineHeight: 1.4 }}>{cat.feedback}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Bullet Point Rewrites */}
+                            {(analysisResult.bullet_point_transformers || []).length > 0 && (
+                                <div className="rb-opt-section">
+                                    <h4>🔄 Bullet Point Rewrites</h4>
+                                    {analysisResult.bullet_point_transformers.map((bpt, i) => (
+                                        <label key={i} className="rb-opt-checkbox-card">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!selectedItems[`bpt-${i}`]}
+                                                onChange={() => toggleItem(`bpt-${i}`)}
+                                            />
+                                            <div className="rb-opt-checkbox-content">
+                                                <div style={{ fontSize: '0.75rem', color: '#EF4444', textDecoration: 'line-through', marginBottom: '0.375rem', lineHeight: 1.4 }}>
+                                                    {bpt.weak_text}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#22C55E', lineHeight: 1.4 }}>
+                                                    → {bpt.suggested_replacement}
+                                                </div>
+                                                <div style={{ fontSize: '0.625rem', color: '#63636E', marginTop: '0.25rem' }}>{bpt.reason}</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Suggestions */}
+                            {(analysisResult.suggestions || []).length > 0 && (
+                                <div className="rb-opt-section">
+                                    <h4>💡 Suggestions</h4>
+                                    {analysisResult.suggestions.map((sug, i) => {
+                                        const sev = getSeverityStyle(sug.severity)
+                                        return (
+                                            <label key={i} className="rb-opt-checkbox-card">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!selectedItems[`sug-${i}`]}
+                                                    onChange={() => toggleItem(`sug-${i}`)}
+                                                />
+                                                <div className="rb-opt-checkbox-content">
+                                                    <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                                        <span style={{
+                                                            fontSize: '0.5625rem', fontWeight: 700, textTransform: 'uppercase',
+                                                            padding: '0.125rem 0.375rem', borderRadius: '0.25rem',
+                                                            background: sev.bg, border: `1px solid ${sev.border}`, color: sev.color
+                                                        }}>
+                                                            {sug.severity}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.75rem', color: '#EDEDEF', fontWeight: 600 }}>{sug.title}</span>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.6875rem', color: '#A1A1A9', lineHeight: 1.4 }}>{sug.description}</p>
+                                                    {sug.suggested_replacement && (
+                                                        <div style={{
+                                                            fontSize: '0.6875rem', color: '#22C55E', marginTop: '0.375rem',
+                                                            padding: '0.375rem 0.5rem', background: 'rgba(34,197,94,0.06)',
+                                                            borderRadius: '0.375rem', border: '1px solid rgba(34,197,94,0.15)', lineHeight: 1.4
+                                                        }}>
+                                                            ✏️ {sug.suggested_replacement}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Missing Keywords */}
+                            {(analysisResult.keyword_suggestions || []).length > 0 && (
+                                <div className="rb-opt-section">
+                                    <h4>🔑 Missing Keywords</h4>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                                        {(analysisResult.keyword_suggestions || []).map((kw, i) => (
+                                            <label key={i} className="rb-opt-keyword-chip" style={{
+                                                background: selectedItems[`kw-${i}`] ? 'rgba(59,130,246,0.15)' : '#111113',
+                                                borderColor: selectedItems[`kw-${i}`] ? 'rgba(59,130,246,0.4)' : '#27272F'
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!selectedItems[`kw-${i}`]}
+                                                    onChange={() => toggleItem(`kw-${i}`)}
+                                                    style={{ display: 'none' }}
+                                                />
+                                                {selectedItems[`kw-${i}`] ? '✓ ' : '+ '}{kw}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* LinkedIn Comparison */}
+                            {compareResult && (
+                                <div className="rb-opt-section">
+                                    <h4>🔗 LinkedIn Insights</h4>
+                                    <div style={{
+                                        display: 'flex', gap: '0.75rem', marginBottom: '0.75rem',
+                                        padding: '0.625rem', background: '#0D0D0F', borderRadius: '0.5rem', border: '1px solid #1C1C22'
+                                    }}>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: getScoreColor(compareResult.match_score) }}>
+                                                {compareResult.match_score}%
+                                            </div>
+                                            <div style={{ fontSize: '0.5625rem', color: '#63636E', textTransform: 'uppercase' }}>Match</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: getScoreColor(compareResult.role_alignment) }}>
+                                                {compareResult.role_alignment}%
+                                            </div>
+                                            <div style={{ fontSize: '0.5625rem', color: '#63636E', textTransform: 'uppercase' }}>Role Fit</div>
+                                        </div>
+                                    </div>
+                                    <p style={{ fontSize: '0.6875rem', color: '#A1A1A9', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                                        {compareResult.summary}
+                                    </p>
+                                    {(compareResult.add_to_resume || []).map((item, i) => (
+                                        <label key={i} className="rb-opt-checkbox-card">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!selectedItems[`li-${i}`]}
+                                                onChange={() => toggleItem(`li-${i}`)}
+                                            />
+                                            <div className="rb-opt-checkbox-content">
+                                                <span style={{ fontSize: '0.75rem', color: '#EDEDEF', fontWeight: 600 }}>{item.item}</span>
+                                                <p style={{ fontSize: '0.6875rem', color: '#63636E', marginTop: '0.125rem' }}>
+                                                    Section: {item.section} — {item.why}
+                                                </p>
+                                                {item.suggested_text && (
+                                                    <div style={{
+                                                        fontSize: '0.6875rem', color: '#3B82F6', marginTop: '0.25rem',
+                                                        padding: '0.25rem 0.5rem', background: 'rgba(59,130,246,0.06)',
+                                                        borderRadius: '0.25rem', lineHeight: 1.4
+                                                    }}>
+                                                        {item.suggested_text}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Expert Verdict */}
+                            {analysisResult.expert_verdict?.is_needed && (
+                                <div className="rb-opt-section">
+                                    <div style={{
+                                        padding: '0.875rem', background: 'rgba(245,158,11,0.06)',
+                                        border: '1px solid rgba(245,158,11,0.2)', borderRadius: '0.5rem'
+                                    }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#F59E0B', marginBottom: '0.375rem' }}>
+                                            🏆 {analysisResult.expert_verdict.title}
+                                        </div>
+                                        <p style={{ fontSize: '0.75rem', color: '#A1A1A9', lineHeight: 1.5 }}>
+                                            {analysisResult.expert_verdict.message}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Strengths */}
+                            {(analysisResult.strengths || []).length > 0 && (
+                                <div className="rb-opt-section">
+                                    <h4>💪 Strengths</h4>
+                                    {analysisResult.strengths.map((s, i) => (
+                                        <div key={i} style={{
+                                            fontSize: '0.6875rem', color: '#22C55E', padding: '0.375rem 0.5rem',
+                                            background: 'rgba(34,197,94,0.06)', borderRadius: '0.375rem',
+                                            marginBottom: '0.375rem', lineHeight: 1.4
+                                        }}>
+                                            ✓ {s}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Apply Button */}
+                {analysisResult && (
+                    <div className="rb-optimizer-footer">
+                        <button
+                            className="rb-btn rb-btn-accent"
+                            style={{ width: '100%', fontWeight: 600 }}
+                            onClick={handleApply}
+                            disabled={selectedCount === 0}
+                        >
+                            ✅ Apply Selected ({selectedCount}) & Continue to Editor
+                        </button>
+                    </div>
+                )}
+            </div>
+        </>
+    )
+}
+
+
+// ═══════════════════════════════════════
 //  UPLOAD / PASTE MODE
 // ═══════════════════════════════════════
 const UploadMode = ({ setData, setMode }) => {
@@ -909,6 +1371,9 @@ const UploadMode = ({ setData, setMode }) => {
     const [dragActive, setDragActive] = useState(false)
     const [fileName, setFileName] = useState('')
     const fileInputRef = useRef(null)
+    const [parsedData, setParsedData] = useState(null) // holds parsed resume data after AI parse
+    const [showChoice, setShowChoice] = useState(false) // show General/Professional choice
+    const [showOptimizer, setShowOptimizer] = useState(false) // show side panel
 
     const extractTextFromFile = async (file) => {
         const ext = file.name.split('.').pop().toLowerCase()
@@ -1009,8 +1474,7 @@ const UploadMode = ({ setData, setMode }) => {
             const parsed = await parseResumeText(rawText)
             if (!parsed) throw new Error('Failed to parse resume')
 
-            setData(prev => ({
-                ...prev,
+            const newData = {
                 personal: {
                     name: parsed.name || '',
                     email: parsed.email || '',
@@ -1049,10 +1513,13 @@ const UploadMode = ({ setData, setMode }) => {
                 skills: parsed.skills || [],
                 summary: parsed.summary || '',
                 certifications: parsed.certifications || []
-            }))
+            }
 
-            setStatus({ type: 'success', text: 'Resume parsed! Switching to editor...' })
-            setTimeout(() => setMode('manual'), 1000)
+            // Store parsed data and show choice screen
+            setData(prev => ({ ...prev, ...newData }))
+            setParsedData(newData)
+            setStatus({ type: 'success', text: '✅ Resume parsed successfully!' })
+            setShowChoice(true)
         } catch (err) {
             console.error(err)
             setStatus({ type: 'error', text: 'Failed to parse. Please try again or use the manual form.' })
@@ -1060,6 +1527,84 @@ const UploadMode = ({ setData, setMode }) => {
         setLoading(false)
     }
 
+    const handleGeneralPath = () => {
+        setMode('manual')
+    }
+
+    const handleProfessionalPath = () => {
+        setShowOptimizer(true)
+    }
+
+    // If choice screen is showing
+    if (showChoice && !showOptimizer) {
+        return (
+            <div className="rb-form-panel">
+                <div className="rb-form-header">
+                    <h2>✅ Resume Parsed Successfully</h2>
+                </div>
+                <div className="rb-upload-area" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
+                    <h3 style={{ color: '#EDEDEF', fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                        How would you like to proceed?
+                    </h3>
+                    <p style={{ color: '#63636E', fontSize: '0.8125rem', marginBottom: '2rem', lineHeight: 1.5 }}>
+                        Your resume has been parsed. Choose your optimization level below.
+                    </p>
+
+                    <div className="rb-choice-cards">
+                        <div className="rb-choice-card" onClick={handleGeneralPath}>
+                            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📝</div>
+                            <h4>General Optimization</h4>
+                            <p>Go straight to the editor. Edit sections manually, use AI to enhance individual bullets.</p>
+                            <span className="rb-choice-tag">Quick</span>
+                        </div>
+
+                        <div className="rb-choice-card rb-choice-card-pro" onClick={handleProfessionalPath}>
+                            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>✨</div>
+                            <h4>Optimize Professionally</h4>
+                            <p>AI analyzes your resume for ATS, keywords, weak bullets, and provides targeted rewrites.</p>
+                            <span className="rb-choice-tag pro">AI-Powered</span>
+                        </div>
+                    </div>
+
+                    <button className="rb-btn rb-btn-secondary" onClick={() => { setShowChoice(false); setParsedData(null) }} style={{ marginTop: '1.5rem' }}>
+                        ← Re-upload
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    // If optimizer panel is open
+    if (showOptimizer && parsedData) {
+        return (
+            <>
+                <div className="rb-form-panel">
+                    <div className="rb-form-header">
+                        <h2>✨ Professional Optimization</h2>
+                    </div>
+                    <div className="rb-upload-area" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔬</div>
+                        <p style={{ color: '#A1A1A9', fontSize: '0.8125rem', lineHeight: 1.5 }}>
+                            The optimizer panel is open on the right. Fill in your target role and click Analyze to get AI-powered suggestions.
+                        </p>
+                        <button className="rb-btn rb-btn-secondary" onClick={() => setShowOptimizer(false)} style={{ marginTop: '1rem' }}>
+                            ← Back to choices
+                        </button>
+                    </div>
+                </div>
+                <OptimizerPanel
+                    resumeText={rawText}
+                    resumeData={parsedData}
+                    setData={setData}
+                    setMode={setMode}
+                    onClose={() => setShowOptimizer(false)}
+                />
+            </>
+        )
+    }
+
+    // Default: Upload/Paste UI
     return (
         <div className="rb-form-panel">
             <div className="rb-form-header">

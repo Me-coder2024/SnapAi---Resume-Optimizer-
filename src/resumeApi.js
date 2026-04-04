@@ -2,6 +2,7 @@
 // Ported from aksh-1h/resume_builder_aksh analyzer.py
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { supabase } from './supabase';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -266,6 +267,113 @@ Write ONLY the summary paragraph (4-5 sentences, 250+ characters). No labels, no
 }
 
 /**
+ * Fetch LinkedIn profile data using Apify scraper (curious_coder actor)
+ * Requires LinkedIn li_at cookie stored in VITE_LINKEDIN_COOKIE
+ * Returns { education, experience, skills } in resume-ready format
+ */
+export async function fetchLinkedInProfile(linkedinUrl) {
+    if (!linkedinUrl) throw new Error('LinkedIn URL is required');
+
+    // Normalize the URL
+    let profileUrl = linkedinUrl.trim();
+    if (!profileUrl.startsWith('http')) profileUrl = `https://${profileUrl}`;
+    if (!profileUrl.includes('linkedin.com/in/')) {
+        throw new Error('Please enter a valid LinkedIn profile URL (e.g., linkedin.com/in/yourname)');
+    }
+
+    const APIFY_TOKEN = import.meta.env.VITE_APIFY_API_KEY;
+    if (!APIFY_TOKEN) throw new Error('Apify API key is not configured');
+
+    const LINKEDIN_COOKIE = import.meta.env.VITE_LINKEDIN_COOKIE;
+    if (!LINKEDIN_COOKIE || LINKEDIN_COOKIE === 'PASTE_YOUR_LI_AT_COOKIE_HERE') {
+        throw new Error('LinkedIn cookie is not configured. Please add your li_at cookie to the .env file.');
+    }
+
+    // Use the curious_coder actor which reliably returns correct profile data
+    const ACTOR_ID = 'curious_coder~linkedin-profile-scraper';
+    const apiUrl = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            cookie: [{ name: 'li_at', value: LINKEDIN_COOKIE, domain: '.linkedin.com' }],
+            urls: [profileUrl],
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            proxy: {
+                useApifyProxy: true,
+                apifyProxyGroups: ['RESIDENTIAL'],
+                apifyProxyCountry: 'US'
+            },
+            minDelay: 2,
+            maxDelay: 5
+        })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error('Apify error response:', errText);
+        throw new Error(`LinkedIn scraper failed (${response.status}). Check your Apify quota and cookie.`);
+    }
+
+    const results = await response.json();
+    console.log('LinkedIn API raw response:', JSON.stringify(results).substring(0, 500));
+
+    if (!results || results.length === 0) {
+        throw new Error('No data returned from LinkedIn. The profile may be private or your cookie may have expired.');
+    }
+
+    const profile = results[0];
+    console.log('LinkedIn profile keys:', Object.keys(profile));
+
+    // Map education data — curious_coder uses: educations array with schoolName, degree, fieldOfStudy, dateRange
+    const rawEducation = profile.educations || profile.education || [];
+    const education = rawEducation.map(edu => {
+        const degreeParts = [];
+        if (edu.degreeName || edu.degree_name || edu.degree) degreeParts.push(edu.degreeName || edu.degree_name || edu.degree);
+        if (edu.fieldOfStudy || edu.field_of_study) degreeParts.push(edu.fieldOfStudy || edu.field_of_study);
+        const degreeStr = degreeParts.length > 0 ? degreeParts.join(' in ') : '';
+
+        return {
+            institution: edu.schoolName || edu.school || edu.institutionName || '',
+            degree: degreeStr,
+            date: edu.dateRange || edu.duration || edu.timePeriod || '',
+            gpa: edu.grade || ''
+        };
+    }).filter(e => e.institution);
+
+    // Map experience data — curious_coder uses: positions or experience array
+    const rawExperience = profile.positions || profile.experience || [];
+    const experience = rawExperience.map(exp => {
+        let dateStr = exp.dateRange || exp.duration || '';
+        if (!dateStr && exp.startDate) {
+            dateStr = `${exp.startDate} — ${exp.endDate || 'Present'}`;
+        }
+
+        return {
+            company: exp.companyName || exp.company || '',
+            title: exp.title || exp.position || '',
+            date: dateStr,
+            location: exp.location || '',
+            description: exp.description || '',
+            bullets: []
+        };
+    }).filter(e => e.company || e.title);
+
+    // Extract skills
+    const rawSkills = (profile.skills || []).map(s =>
+        typeof s === 'string' ? s : (s.name || s.skill || s.title || '')
+    ).filter(Boolean);
+
+    // Also try top skills from profile summary
+    const topSkills = profile.topSkills || [];
+
+    const allSkills = [...new Set([...rawSkills, ...topSkills])];
+
+    return { education, experience, skills: allSkills };
+}
+
+/**
  * Extract GitHub username from a URL or return as-is if it's just a username
  */
 function extractGitHubUsername(input) {
@@ -315,17 +423,18 @@ export async function fetchGitHubProjects(githubInput, maxRepos = 6) {
         };
     });
 
-    // Now use AI to generate bullet points for each project
-    const enhancedProjects = [];
-    for (const proj of projects) {
-        try {
-            const desc = proj.description || `A ${proj.technologies} project`;
-            const bullets = await enhanceProject(proj.name, desc);
-            enhancedProjects.push({ ...proj, bullets });
-        } catch {
-            enhancedProjects.push(proj);
-        }
-    }
+    // Now use AI to generate bullet points for each project IN PARALLEL (much faster)
+    const enhancedProjects = await Promise.all(
+        projects.map(async (proj) => {
+            try {
+                const desc = proj.description || `A ${proj.technologies} project`;
+                const bullets = await enhanceProject(proj.name, desc);
+                return { ...proj, bullets };
+            } catch {
+                return proj;
+            }
+        })
+    );
 
     // Also collect all languages/topics as potential skills
     const skills = [...new Set(
@@ -410,19 +519,26 @@ Ask for: Company, Job Title, Date range, Location, Key responsibilities.
 Example: "Tell me about your work experience. For each role, please share:\n1. **Company Name**\n2. **Your Job Title**\n3. **Duration** (e.g., Jun 2023 — Present)\n4. **Location** (e.g., Remote / Bangalore, India)\n5. **What you did** — a brief description of your responsibilities and achievements."
 
 **Step 4 — Projects**
-IMPORTANT BEHAVIOR FOR PROJECTS:
-- If the user provided a GitHub URL/username in Step 1, ALWAYS offer GitHub import FIRST as the primary option.
-- If the user says they don't have projects, can't think of any, says "no", "skip", "none", or anything similar — DO NOT skip this section. Instead, ask:
-  "No worries! Do you have a **GitHub profile**? I can **automatically import your top projects** from GitHub and format them professionally for your resume! 🚀\\n\\nJust share your **GitHub username or URL** and say **'import from GitHub'**."
-- If they already shared a GitHub URL earlier, say:
-  "I see you already shared your GitHub profile! 🎉 Would you like me to **import your top projects from GitHub** automatically? Just say **'import from GitHub'** and I'll handle everything!"
+MANDATORY: When transitioning to the projects section, you MUST ALWAYS ask about GitHub import FIRST before asking for manual project details. This is non-negotiable.
 
-When the user says "import from GitHub", "fetch from GitHub", "use my GitHub", "yes import", "yes", etc. in the context of projects, respond with:
-"🔄 **Importing your projects from GitHub...** I'll fetch your top repositories and format them for your resume!"
-Then output a resume_data block with:
-\`\`\`resume_data
-{"section": "github_import", "data": {"action": "import"}}
-\`\`\`
+BEHAVIOR WHEN REACHING PROJECTS:
+1. If the user provided a GitHub URL/username in Step 1, you MUST say:
+   "💻 **Now let's add your Projects!**\n\nI see you shared your GitHub profile earlier! 🎉 I can **automatically import your top projects from GitHub** and generate professional bullet points for each one.\n\n**Would you like me to import your projects from GitHub?** Just say **'yes'** or **'import from GitHub'** and I'll handle everything! 🚀\n\nOr if you prefer, you can share your projects manually instead."
+
+2. If the user did NOT provide a GitHub URL in Step 1, you MUST say:
+   "💻 **Now let's add your Projects!**\n\nDo you have a **GitHub profile**? I can **automatically import your top projects** and generate professional bullet points — it's the fastest way to fill this section! 🚀\n\nJust share your **GitHub username or profile URL** and say **'import from GitHub'**.\n\nOr if you prefer, you can share your projects manually."
+
+3. If the user says they don't have projects, can't think of any, says "no", "skip", "none", or anything similar — DO NOT skip this section. Instead, ask:
+   "No worries! Do you have a **GitHub profile**? Even class assignments or personal experiments count as projects! I can **automatically import your top repos from GitHub** and format them professionally for your resume! 🚀\n\nJust share your **GitHub username or URL** and say **'import from GitHub'**."
+
+4. If the user says "yes", "import", "import from GitHub", "fetch from GitHub", "use my GitHub", "yes import", or anything affirming GitHub import, respond with:
+   "🔄 **Importing your projects from GitHub...** I'll fetch your top repositories and generate professional bullet points for your resume!"
+   Then output a resume_data block with:
+   \`\`\`resume_data
+   {"section": "github_import", "data": {"action": "import"}}
+   \`\`\`
+
+5. If the user provides a GitHub URL/username at this point (even without explicitly saying "import"), treat it as a GitHub import request and respond with the import message above.
 
 If the user wants to share projects manually instead, ask for each project:
 1. **Project Name**
@@ -441,6 +557,15 @@ Example: "List your **technical skills** separated by commas (e.g., Python, Java
 **Step 6 — Professional Summary**
 Offer to generate one or let them write their own.
 Example: "Would you like me to **generate a professional summary** based on everything we've collected? Or would you prefer to write your own?"
+
+**Step 7 — Completion**
+After you have collected ALL sections (Personal Info, Education, Experience, Projects, Skills, and Summary), you MUST:
+1. Give a congratulatory message summarizing what was built
+2. Include the exact phrase [RESUME_COMPLETE] somewhere in your message (this triggers the download button on the frontend)
+3. Tell the user their resume is ready to download and it costs 20 credits
+
+Example completion message:
+"🎉 **Your resume is complete!** Here's what we've built together:\\n\\n✅ Personal Information\\n✅ Education\\n✅ Work Experience\\n✅ Projects\\n✅ Skills\\n✅ Professional Summary\\n\\nYour professional resume is ready! Click the **Download PDF** button below to get your ATS-optimized resume. (Costs 20 credits)\\n\\n[RESUME_COMPLETE]"
 
 After each step, provide a clear, formatted summary of what you collected using bold labels, then ask:
 "✅ **Got it!** Here\'s what I have for [section name]:\n- **Field**: value\n- **Field**: value\n\nDoes this look correct? Say **'yes'** to continue to the next section, or let me know what to change."
@@ -795,3 +920,55 @@ export function calculateATSScore(resumeData) {
         tips: tips.slice(0, 8) // Show top 8 tips
     };
 }
+
+/**
+ * Save resume data to Supabase (with localStorage fallback)
+ */
+export async function saveResumeData(uid, resumeData) {
+    if (!uid) {
+        try { localStorage.setItem('snapai_guest_resume', JSON.stringify(resumeData)) } catch(e){}
+        return;
+    }
+    
+    try {
+        const { error } = await supabase.from('user_resumes').upsert({
+            uid: uid,
+            resume_data: resumeData,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'uid', returning: 'minimal' });
+        
+        if (error) throw error;
+    } catch (err) {
+        console.warn('Failed to save resume to Supabase, falling back to localStorage:', err);
+        try { localStorage.setItem(`snapai_resume_${uid}`, JSON.stringify(resumeData)) } catch(e){}
+    }
+}
+
+/**
+ * Load resume data from Supabase (with localStorage fallback)
+ */
+export async function loadResumeData(uid) {
+    if (!uid) {
+        try {
+            const raw = localStorage.getItem('snapai_guest_resume');
+            if (raw) return JSON.parse(raw);
+        } catch(e){}
+        return null;
+    }
+    
+    try {
+        const { data, error } = await supabase.from('user_resumes').select('resume_data').eq('uid', uid).single();
+        if (data && data.resume_data) {
+            return data.resume_data;
+        }
+    } catch (err) {
+        console.warn('Failed to load resume from Supabase, trying localStorage:', err);
+    }
+    
+    try {
+        const raw = localStorage.getItem(`snapai_resume_${uid}`);
+        if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return null;
+}
+

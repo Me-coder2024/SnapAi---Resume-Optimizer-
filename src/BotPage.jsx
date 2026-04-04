@@ -32,6 +32,8 @@ const BotPage = () => {
     const [user, setUser] = useState(null)
     const [history, setHistory] = useState([])
     const [showInternBot, setShowInternBot] = useState(false)
+    const [showResumeBuilder, setShowResumeBuilder] = useState(false)
+    const [resumeBuilderMode, setResumeBuilderMode] = useState('chat')
     const [walletCredits, setWalletCredits] = useState(0)
     const inputRef = useRef(null)
     const initialSent = useRef(false)
@@ -170,6 +172,22 @@ const BotPage = () => {
                     time: aiTime
                 }])
                 setTimeout(() => setShowInternBot(true), 800)
+            } else if (aiText.includes('[LAUNCH_RESUME_BUILDER]')) {
+                setMessages(prev => [...prev, {
+                    role: 'ai',
+                    content: '📄 Great! Let me launch the AI Resume Builder for you. You can build your resume interactively by chatting with our AI assistant!',
+                    time: aiTime
+                }])
+                setResumeBuilderMode('chat')
+                setTimeout(() => setShowResumeBuilder(true), 800)
+            } else if (aiText.includes('[LAUNCH_RESUME_UPLOAD]')) {
+                setMessages(prev => [...prev, {
+                    role: 'ai',
+                    content: '📋 Sure! Let me open the Resume Optimizer. You can paste your existing resume and I\'ll help improve it!',
+                    time: aiTime
+                }])
+                setResumeBuilderMode('upload')
+                setTimeout(() => setShowResumeBuilder(true), 800)
             } else {
                 setMessages(prev => [...prev, { role: 'ai', content: aiText, time: aiTime }])
             }
@@ -309,8 +327,9 @@ const BotPage = () => {
                                 {[
                                     'What tools do you have?',
                                     'Find me an internship',
-                                    'How does SnapAI work?',
-                                    'Request a custom tool'
+                                    'Build my resume',
+                                    'Modify my resume',
+                                    'How does SnapAI work?'
                                 ].map((q, i) => (
                                     <button
                                         key={i}
@@ -339,6 +358,23 @@ const BotPage = () => {
                             </button>
                         </div>
                         <iframe src={internBotUrl} title="InternBot" className="flex-1 w-full border-0" />
+                    </div>
+                )}
+
+                {/* Resume Builder AI Chat iframe overlay */}
+                {showResumeBuilder && (
+                    <div className="absolute inset-0 z-30 bg-[#09090B] flex flex-col">
+                        <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-[#1C1C22]">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-[#EDEDEF] font-mono">📄 Resume Builder</span>
+                                <span className="text-[10px] font-mono text-[#3B82F6] bg-[#3B82F6]/10 border border-[#3B82F6]/20 px-2 py-0.5 rounded">AI CHAT</span>
+                            </div>
+                            <button onClick={() => setShowResumeBuilder(false)} className="text-xs font-mono text-[#A1A1A9] bg-[#111113] border border-[#27272F] px-3 py-1.5 rounded-md hover:text-[#EDEDEF] hover:border-[#33333D] transition-colors flex items-center gap-1.5">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                Back to Chat
+                            </button>
+                        </div>
+                        <iframe src={`/resume-builder?mode=${resumeBuilderMode}&embed=true`} title="Resume Builder" className="flex-1 w-full border-0" style={{ minHeight: 0 }} />
                     </div>
                 )}
 

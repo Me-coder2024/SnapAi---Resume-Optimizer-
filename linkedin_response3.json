@@ -1,0 +1,276 @@
+[
+  {
+    "basic_info": {
+      "fullname": "Sarp Tecimer",
+      "first_name": "Sarp",
+      "last_name": "Tecimer",
+      "headline": "Cybersecurity Consultant, Advisor, Vendor and Channel Management Professional",
+      "public_identifier": "sarptecimer",
+      "profile_url": "https://linkedin.com/in/sarptecimer",
+      "profile_picture_url": "https://media.licdn.com/dms/image/v2/C4D03AQEV_svXrnWb9A/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1516802592049?e=1776902400&v=beta&t=NFKUgP1I4zXhZNOCA_dHTTCDYpFjzJ8mGYCF8YkfdeU",
+      "about": "Cyber security consultant, with a base of business administration, management information systems, IT consultancy, product management and sales. An enthusiast of emerging technologies and adds value by using his skills to fulfill both sales and technical needs of business partners and reseller channels. Highly focused on interpersonal communications for creating a trust-based and sustainable relationship with business partners, end users, enterprise customers, corporate customers and colleagues. \n\nEasily adapts to new environments and corporate cultures. His desire is to pursue his vision in channel, product and vendor management as an Executive in a reputable global company.\n\nSpecialties: Relationship management, security architecture, compliance, training, building new channels, partner onboarding, business development, channel management, creating brand/technology awareness.\n\nCertificates:\nBrocade: BCNE\nJuniper Networks \nSales:JNSA-NI, JNSA-AS, JNSA-EX, JNSA-FWV, JNSA-IDP, JNSA-JUNOS, JNSA-MMX, JNSA-MT, JNSA-SRX, JNSA-SSL, JNSA-UAC, JNSA-WX\nTechincal: JNSS-FWV, JNSS-EX, JNSS-JUNOS, JNSS-SSL, JNSS-UAC\nBlue Coat:Blue Coat Accredited Sales Professional\nNetApp:NASP\nGemalto: Gemalto Sales Professional\nSales Certification for F5 Networks, WatchGuard, Aruba Networks\nFluke Networks:ACAD 102&302\nIvanti: Certified Sales Professional Plus",
+      "location": {
+        "country": "Türkiye",
+        "city": "Istanbul",
+        "full": "Istanbul, Türkiye",
+        "country_code": "TR"
+      },
+      "creator_hashtags": [
+        "compliance",
+        "datasecurity",
+        "itmanagement",
+        "networksecurity",
+        "securityarchitecture"
+      ],
+      "is_creator": true,
+      "is_influencer": false,
+      "is_premium": false,
+      "open_to_work": false,
+      "created_timestamp": 1262833543343,
+      "show_follower_count": true,
+      "background_picture_url": "https://media.licdn.com/dms/image/v2/D4D16AQGQ_A-wx1-MyA/profile-displaybackgroundimage-shrink_350_1400/B4DZzmoOyTG4AY-/0/1773395836433?e=1776902400&v=beta&t=_yxNVyM2Xn24pNUXVNxLM6IZd2cJRRrZIdeu9_r6dJs",
+      "urn": "ACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw",
+      "follower_count": 2049,
+      "connection_count": 2036,
+      "current_company": "Kafein Technology Solutions",
+      "current_company_urn": "642741",
+      "current_company_url": "https://www.linkedin.com/company/kafein-technology-solutions",
+      "top_skills": [
+        "Cybersecurity",
+        "IT Consultancy",
+        "Channel Partners",
+        "Regulatory Compliance",
+        "Pre-sales"
+      ],
+      "email": null
+    },
+    "experience": [
+      {
+        "title": "Senior Product Owner",
+        "company": "Kafein Technology Solutions",
+        "location": "Istanbul, Türkiye",
+        "description": "Building and managing the product roadmaps for three in-house software solutions. (Data Touch, Data Focus, Test Data Management)\nCustomer, Partner and Internal facing product presentations.\nPreparation of government and technology center project forms.\nWriting product feature analysis documents and creating mock-ups.\nManaging daily meetings and vendor relations for co-op actions.\nWriting and responding RFPs and RFIs.\nKeeping in touch with key customers for both customer satisfaction and product experience improvements.\nSupporting the test team with full end user testing operations.\nProofreading and amending social media content.\nSupporting EU projects with creating presentations, solution architecture and product placement.",
+        "duration": "Jun 2024 - Oct 2025 · 1 yr 5 mos",
+        "start_date": {
+          "year": 2024,
+          "month": "Jun"
+        },
+        "end_date": {
+          "year": 2025,
+          "month": "Oct"
+        },
+        "is_current": false,
+        "company_linkedin_url": "https://www.linkedin.com/company/642741/",
+        "company_logo_url": "https://media.licdn.com/dms/image/v2/D4D0BAQHraCE_HmTktQ/company-logo_400_400/company-logo_400_400/0/1731592034743/kafein_software_logo?e=1776902400&v=beta&t=ZGg6ck6qIkc43O8bmcrYY4imPGnc5x5EhV0yq5Y0vTg",
+        "employment_type": "Full-time",
+        "location_type": "Hybrid",
+        "company_id": "642741"
+      },
+      {
+        "title": "Solution Consultant",
+        "company": "Procenne",
+        "location": "Istanbul, Türkiye",
+        "description": "Prepared customer specific project documents, technical architecture drawings, presentations, competitive analyses in addition to corporate blogs, brochure content, technical RFPs, agreement assessment, customer meetings, calls, trainings, webinars and active attendance in international events.",
+        "duration": "Apr 2022 - Dec 2023 · 1 yr 9 mos",
+        "start_date": {
+          "year": 2022,
+          "month": "Apr"
+        },
+        "end_date": {
+          "year": 2023,
+          "month": "Dec"
+        },
+        "is_current": false,
+        "company_linkedin_url": "https://www.linkedin.com/company/5137120/",
+        "company_logo_url": "https://media.licdn.com/dms/image/v2/C4D0BAQFSuQAxww-axw/company-logo_400_400/company-logo_400_400/0/1677669335650/procenneds_logo?e=1776902400&v=beta&t=iFkehFEmhCHGKbzJo7gyqa4lyK9eUhf5OmEKtbk67JA",
+        "employment_type": "Full-time",
+        "location_type": "Hybrid",
+        "skills": [
+          "IT Consultancy",
+          "Customer Relations"
+        ],
+        "company_id": "5137120",
+        "skills_url": "https://www.linkedin.com/in/sarptecimer/overlay/urn:li:fsd_profilePosition:(ACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw,1946677872)/skill-associations-details?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw"
+      },
+      {
+        "title": "Head of Sales",
+        "company": "ETOM Technology",
+        "location": "Kartal, Istanbul, Türkiye",
+        "description": "Corporate branding, sales planning, product testing, UI/UX consultancy, content management, partner mapping and documentation preparing.",
+        "duration": "Jun 2020 - May 2021 · 1 yr",
+        "start_date": {
+          "year": 2020,
+          "month": "Jun"
+        },
+        "end_date": {
+          "year": 2021,
+          "month": "May"
+        },
+        "is_current": false,
+        "company_linkedin_url": "https://www.linkedin.com/company/18465486/",
+        "employment_type": "Full-time",
+        "location_type": "On-site",
+        "skills": [
+          "New Channel Development",
+          "Usability Testing"
+        ],
+        "skills_url": "https://www.linkedin.com/in/sarptecimer/overlay/urn:li:fsd_profilePosition:(ACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw,1648401096)/skill-associations-details?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw"
+      },
+      {
+        "title": "Product Manager",
+        "company": "E-DATA TEKNOLOJİ PAZARLAMA LTD. ŞTİ.",
+        "location": "Istanbul, Turkey",
+        "description": "Product Manager of Cososys, Ivanti and Blancco.\nMade translations for English documents, kept communication alive and well with the vendors, made PoCs, extended the partner environment, aligned the visions of the vendors and the distributor, managed incoming RFPs, increased the brand awareness of his brands.",
+        "duration": "Aug 2018 - Oct 2019 · 1 yr 3 mos",
+        "start_date": {
+          "year": 2018,
+          "month": "Aug"
+        },
+        "end_date": {
+          "year": 2019,
+          "month": "Oct"
+        },
+        "is_current": false,
+        "company_linkedin_url": "https://www.linkedin.com/company/2129818/",
+        "company_logo_url": "https://media.licdn.com/dms/image/v2/C4D0BAQFainDChPYJ3g/company-logo_400_400/company-logo_400_400/0/1677242270918/e_data_teknoloji_paz_as_logo?e=1776902400&v=beta&t=8TUygo-iT01cCSezdDp8X5F5c6yz7anCSOyfV7XOcZQ",
+        "employment_type": "Full-time",
+        "location_type": "On-site",
+        "skills": [
+          "Channel Partners",
+          "Sales Trainings"
+        ],
+        "company_id": "2129818",
+        "skills_url": "https://www.linkedin.com/in/sarptecimer/overlay/urn:li:fsd_profilePosition:(ACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw,1348026137)/skill-associations-details?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw"
+      },
+      {
+        "title": "Senior Presales Consultant",
+        "company": "Detech Bilişim Teknolojileri A.Ş.",
+        "location": "Istanbul, Istanbul, Türkiye",
+        "description": "Prepared competitive documentation\nConsulted partners\nAttended customer trainings\nCreated new vendor relationships\nTranslated and prepared new vendor documents\nTrained the staff for KVKK\nPrepared presentations\nCreated initial contact with potential partners\nContinuously informed the sales team with current PoC states\nAttended end user and partner meetings to support the sales team on the technical side of the products",
+        "duration": "Mar 2018 - May 2018 · 3 mos",
+        "start_date": {
+          "year": 2018,
+          "month": "Mar"
+        },
+        "end_date": {
+          "year": 2018,
+          "month": "May"
+        },
+        "is_current": false,
+        "company_linkedin_url": "https://www.linkedin.com/search/results/all/?keywords=Detech+Bili%C5%9Fim+Teknolojileri+A%2E%C5%9E%2E",
+        "employment_type": "Full-time",
+        "location_type": "On-site",
+        "skills": [
+          "Technical Documentation",
+          "Vendor Negotiation"
+        ],
+        "skills_url": "https://www.linkedin.com/in/sarptecimer/overlay/urn:li:fsd_profilePosition:(ACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw,1243729419)/skill-associations-details?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAAPCNL4BRjB2mlrFKePwdFvNMtb2ekzpEWw"
+      }
+    ],
+    "education": [
+      {
+        "school": "Bahcesehir University",
+        "degree": "MBA., Yonetim Bilisim Sistemleri (MIS)",
+        "degree_name": "MBA.",
+        "field_of_study": "Yonetim Bilisim Sistemleri (MIS)",
+        "duration": "2007 - 2008",
+        "school_linkedin_url": "https://www.linkedin.com/company/31394/",
+        "school_logo_url": "https://media.licdn.com/dms/image/v2/D4D0BAQF36b_TIqfuag/company-logo_400_400/B4DZbFJZdQHsAY-/0/1747064297808/bahcesehir_university_logo?e=1776902400&v=beta&t=LeQhfuLSPV3ckKLwXvVtTaGqXavnJt85ygHdUT4VN8c",
+        "start_date": {
+          "year": 2007
+        },
+        "end_date": {
+          "year": 2008
+        },
+        "school_id": "31394"
+      },
+      {
+        "school": "Yeditepe University",
+        "degree": "Bachelor, Business Administration",
+        "degree_name": "Bachelor",
+        "field_of_study": "Business Administration",
+        "duration": "2001 - 2004",
+        "school_linkedin_url": "https://www.linkedin.com/company/19587/",
+        "description": "As an active member of the music club, helped the club management team on fest and other activities' planning, Also took an active role in the spring fest organizations such as hospitality and guiding services.",
+        "activities": "Music Club",
+        "school_logo_url": "https://media.licdn.com/dms/image/v2/D4D0BAQEYlu372RTgvw/company-logo_400_400/B4DZU3ulJbGcAY-/0/1740396713523?e=1776902400&v=beta&t=iqNquP4j6SoLmKj1h-UpV_HnioYOfI5d3p7vPLdfcQc",
+        "start_date": {
+          "year": 2001
+        },
+        "end_date": {
+          "year": 2004
+        },
+        "school_id": "19587"
+      }
+    ],
+    "projects": [
+      {
+        "name": "Bulutt Belbil",
+        "description": "BuluTT Belbil, Türk Telekom Veri Merkezi'nde bulunan modern kent bilgi sistemi programlarının belediyelere ulaştırılmasını sağlayan hizmettir. Bu hizmet ile belediyeler, lisans ücreti ve ilk yatırım maliyetine gerek kalmadan, aylık ücretlerle kent bilgi sistemi uygulamalarından faydalanabilirler.",
+        "associated_with": "Turk Telekom",
+        "is_current": false
+      },
+      {
+        "name": "Borsa Istanbul NPM Project",
+        "description": "Istanbul's Stock Exchange Company is a non-latency tolerance structure; our team has successfully conducted POC's of NPM and demonstrated the KPI management features. Technical acceptance of the product was made just after the POCs. The project team has managed all the processes smoothly and professionally. ",
+        "associated_with": "Prolink",
+        "is_current": false
+      }
+    ],
+    "certifications": [
+      {
+        "name": "BCNE",
+        "issuer": "Brocade"
+      },
+      {
+        "name": "JNSA-NI, JNSA-AS, JNSA-EX, JNSA-FWV, JNSA-IDP, JNSA-JUNOS, JNSA-MMX, JNSA-MT, JNSA-SRX, JNSA-SSL, JNSA-UAC, JNSA-WX",
+        "issuer": "Sales"
+      },
+      {
+        "name": "JNSS-FWV, JNSS-EX, JNSS-JUNOS, JNSS-SSL, JNSS-UAC",
+        "issuer": "Techincal"
+      },
+      {
+        "name": "Blue Coat Accredited Sales Professional",
+        "issuer": "Blue Coat"
+      },
+      {
+        "name": "NASP",
+        "issuer": "NetApp"
+      },
+      {
+        "name": "Gemalto Sales Professional",
+        "issuer": "Gemalto"
+      },
+      {
+        "name": "ACAD 102&302",
+        "issuer": "Fluke Networks"
+      },
+      {
+        "name": "Certified Sales Professional Plus",
+        "issuer": "Ivanti"
+      }
+    ],
+    "languages": [
+      {
+        "language": "English",
+        "proficiency": "Full professional proficiency"
+      },
+      {
+        "language": "German",
+        "proficiency": "Elementary proficiency"
+      }
+    ],
+    "skills": [
+      "Relationship management",
+      "security architecture",
+      "compliance",
+      "training",
+      "building new channels",
+      "partner onboarding",
+      "business development",
+      "channel management",
+      "creating brand/technology awareness."
+    ]
+  }
+]

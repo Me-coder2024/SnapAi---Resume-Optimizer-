@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
     enhanceExperience,
     enhanceProject,
@@ -8,10 +8,13 @@ import {
     generateSummary,
     chatResumeAssistant,
     fetchGitHubProjects,
+    fetchLinkedInProfile,
     generateProjectBullets,
     generateExperienceBullets,
     atsOptimizeResume,
-    calculateATSScore
+    calculateATSScore,
+    saveResumeData,
+    loadResumeData
 } from './resumeApi'
 import { auth } from './firebase'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -361,6 +364,47 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
         setAiLoading(prev => ({ ...prev, github_import: false }))
     }
 
+    const handleImportLinkedIn = async () => {
+        const linkedinUrl = data.personal.linkedin
+        if (!linkedinUrl) return
+        setAiLoading(prev => ({ ...prev, linkedin_import: true }))
+        try {
+            const result = await fetchLinkedInProfile(linkedinUrl)
+            setData(prev => {
+                // Merge education
+                const existingEdu = prev.education.filter(e => e.institution)
+                const newEducation = existingEdu.length > 0
+                    ? [...existingEdu, ...result.education]
+                    : result.education.length > 0 ? result.education : prev.education
+
+                // Merge experience
+                const existingExp = prev.experience.filter(e => e.company || e.title)
+                const newExperience = existingExp.length > 0
+                    ? [...existingExp, ...result.experience]
+                    : result.experience.length > 0 ? result.experience : prev.experience
+
+                // Merge skills
+                const newSkills = [...new Set([...prev.skills, ...result.skills])]
+
+                return {
+                    ...prev,
+                    education: newEducation,
+                    experience: newExperience,
+                    skills: newSkills
+                }
+            })
+            const imported = []
+            if (result.education.length > 0) imported.push(`${result.education.length} education entries`)
+            if (result.experience.length > 0) imported.push(`${result.experience.length} experiences`)
+            if (result.skills.length > 0) imported.push(`${result.skills.length} skills`)
+            alert(`✅ Successfully imported from LinkedIn: ${imported.join(', ')}`)
+        } catch (err) {
+            console.error(err)
+            alert(err.message || 'Failed to import LinkedIn data')
+        }
+        setAiLoading(prev => ({ ...prev, linkedin_import: false }))
+    }
+
     // Validation helpers
     const getLinkedInWarning = () => {
         const li = data.personal.linkedin?.trim();
@@ -437,6 +481,44 @@ const ManualForm = ({ data, setData, onDownload, downloading }) => {
                 return (
                     <div className="rb-form-section">
                         <h3>🎓 Education</h3>
+
+                        {/* LinkedIn Import — Primary Action */}
+                        <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'linear-gradient(135deg, rgba(10,102,194,0.15), rgba(26,30,36,0.8))', borderRadius: '0.625rem', border: '1px solid #0a66c2' }}>
+                            {data.personal.linkedin ? (
+                                <>
+                                    <button
+                                        className={`rb-ai-btn ${aiLoading.linkedin_import ? 'loading' : ''}`}
+                                        onClick={handleImportLinkedIn}
+                                        disabled={aiLoading.linkedin_import}
+                                        style={{ width: '100%', justifyContent: 'center', padding: '0.75rem 1rem', fontSize: '0.875rem', background: 'linear-gradient(135deg, #0a66c2, #004182)', border: 'none', color: '#fff', fontWeight: 600 }}
+                                    >
+                                        {aiLoading.linkedin_import
+                                            ? <><span className="rb-spinner"></span> Importing from LinkedIn — this may take 30-60 seconds...</>
+                                            : '🔗 Import from LinkedIn'
+                                        }
+                                    </button>
+                                    <p style={{ fontSize: '0.6875rem', color: '#8b949e', marginTop: '0.5rem', textAlign: 'center', lineHeight: 1.4 }}>
+                                        Fetches your education, experience & skills from <strong style={{ color: '#c9d1d9' }}>{data.personal.linkedin}</strong> automatically
+                                    </p>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+                                    <p style={{ fontSize: '0.8125rem', color: '#8b949e', marginBottom: '0.375rem' }}>
+                                        💡 <strong style={{ color: '#c9d1d9' }}>Tip:</strong> Add your LinkedIn URL in the <strong style={{ color: '#c9d1d9' }}>Personal Info</strong> step to import education, experience & skills automatically!
+                                    </p>
+                                    <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.6875rem' }} onClick={() => setStep(0)}>
+                                        ← Go to Personal Info
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ textAlign: 'center', color: '#63636E', fontSize: '0.75rem', margin: '0.5rem 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ flex: 1, height: '1px', background: '#27272F' }}></span>
+                            <span>or add manually</span>
+                            <span style={{ flex: 1, height: '1px', background: '#27272F' }}></span>
+                        </div>
+
                         {data.education.map((edu, i) => (
                             <div key={i} className="rb-entry">
                                 {data.education.length > 1 && (
@@ -915,12 +997,13 @@ const UploadMode = ({ setData, setMode }) => {
 // ═══════════════════════════════════════
 //  AI CHAT MODE
 // ═══════════════════════════════════════
-const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
+const ChatMode = ({ data, setData, setMode, onDownload, downloading }) => {
     const [messages, setMessages] = useState([
         { role: 'ai', content: "👋 **Welcome to the AI Resume Builder!**\n\nI'll guide you step-by-step to create a polished, professional resume. Let's get started!\n\n**Step 1 — Personal Information**\n\nPlease share the following details:\n1. **Full Name**\n2. **Email Address**\n3. **Phone Number**\n4. **LinkedIn Profile URL** (if you have one)\n5. **GitHub Profile URL** (if applicable)\n\nYou can share all of them at once, or one at a time — whatever's comfortable!" }
     ])
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
+    const [resumeComplete, setResumeComplete] = useState(false)
     const chatEndRef = useRef(null)
 
     useEffect(() => {
@@ -936,6 +1019,12 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
 
         try {
             const response = await chatResumeAssistant(userMsg, messages)
+
+            // Check for [RESUME_COMPLETE] signal
+            if (response.includes('[RESUME_COMPLETE]')) {
+                setResumeComplete(true)
+            }
+
             setMessages(prev => [...prev, { role: 'ai', content: response }])
 
             // Check for resume_data blocks
@@ -973,9 +1062,9 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
                         setData(prev => ({ ...prev, summary: text }));
                     } else if (parsed.section === 'github_import' && parsed.data?.action === 'import') {
                         // Trigger GitHub import from chat
-                        const githubUrl = data.personal?.github;
+                        const githubUrl = data?.personal?.github;
                         if (githubUrl) {
-                            setMessages(prev => [...prev, { role: 'ai', content: '🔄 **Fetching your GitHub repositories...** This may take a moment while I analyze each project.' }]);
+                            setMessages(prev => [...prev, { role: 'ai', content: '🔄 **Fetching your GitHub repositories...**\n\nImporting your top projects and generating professional bullet points for each one. This usually takes 5-10 seconds...' }]);
                             try {
                                 const result = await fetchGitHubProjects(githubUrl);
                                 setData(prev => {
@@ -987,7 +1076,7 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
                                         skills: newSkills
                                     };
                                 });
-                                const projNames = result.projects.map(p => `• **${p.name}**`).join('\n');
+                                const projNames = result.projects.map(p => `• **${p.name}**${p.technologies ? ` (${p.technologies})` : ''}`).join('\n');
                                 setMessages(prev => [...prev, {
                                     role: 'ai',
                                     content: `✅ **Successfully imported ${result.projects.length} projects from GitHub!**\n\n${projNames}\n\nI also found these **skills** from your repos: ${result.skills.join(', ')}\n\nWould you like to add any more projects manually, or shall we move on to **Skills**?`
@@ -1012,9 +1101,11 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
             <div className="rb-form-header">
                 <h2>🤖 AI Chat Assistant</h2>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={onDownload} disabled={downloading}>
-                        {downloading ? '...' : '📥 Download PDF (20c)'}
-                    </button>
+                    {resumeComplete && (
+                        <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={onDownload} disabled={downloading}>
+                            {downloading ? '⏳ Optimizing...' : '📥 Download PDF (-20c)'}
+                        </button>
+                    )}
                     <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode('manual')}>
                         Switch to Form →
                     </button>
@@ -1022,8 +1113,8 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
             </div>
             <div className="rb-chat-area">
                 {messages.map((msg, i) => {
-                    // Strip resume_data blocks from display
-                    const displayContent = msg.content.replace(/```resume_data[\s\S]*?```/g, '').trim();
+                    // Strip resume_data blocks and [RESUME_COMPLETE] from display
+                    let displayContent = msg.content.replace(/```resume_data[\s\S]*?```/g, '').replace(/\[RESUME_COMPLETE\]/g, '').trim();
                     // Convert markdown-style formatting to HTML for AI messages
                     const formatMessage = (text) => {
                         if (msg.role !== 'ai') return text;
@@ -1034,18 +1125,56 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
                             .replace(/^[-•]\s/gm, '<br/>• ')
                     };
                     if (!displayContent) return null;
+
+                    // Check if this message has the resume complete signal — render download button inline
+                    const isCompleteMsg = msg.role === 'ai' && msg.content.includes('[RESUME_COMPLETE]');
+
                     return (
-                        <div key={i} className={`rb-chat-msg ${msg.role === 'ai' ? 'ai' : 'user'}`}>
-                            {msg.role === 'ai'
-                                ? <span dangerouslySetInnerHTML={{ __html: formatMessage(displayContent) }} />
-                                : displayContent
-                            }
-                        </div>
+                        <React.Fragment key={i}>
+                            <div className={`rb-chat-msg ${msg.role === 'ai' ? 'ai' : 'user'}`}>
+                                {msg.role === 'ai'
+                                    ? <span dangerouslySetInnerHTML={{ __html: formatMessage(displayContent) }} />
+                                    : displayContent
+                                }
+                            </div>
+                            {isCompleteMsg && (
+                                <div style={{
+                                    alignSelf: 'flex-start',
+                                    marginTop: '0.5rem',
+                                    animation: 'rbFadeIn 0.5s ease'
+                                }}>
+                                    <button
+                                        className="rb-btn rb-btn-accent"
+                                        onClick={onDownload}
+                                        disabled={downloading}
+                                        style={{
+                                            padding: '0.75rem 1.5rem',
+                                            fontSize: '0.9375rem',
+                                            borderRadius: '0.75rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+                                            width: '100%',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        {downloading ? (
+                                            <><span className="rb-spinner" /> Optimizing & Generating PDF...</>
+                                        ) : (
+                                            <>📥 Download Resume PDF <span style={{ opacity: 0.7, fontSize: '0.75rem' }}>(-20 credits)</span></>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </React.Fragment>
                     );
                 })}
                 {isTyping && (
                     <div className="rb-chat-msg ai" style={{ fontStyle: 'italic', color: '#63636E' }}>
-                        Thinking...
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="rb-spinner" /> Thinking...
+                        </span>
                     </div>
                 )}
                 <div ref={chatEndRef} />
@@ -1069,7 +1198,10 @@ const ChatMode = ({ setData, setMode, onDownload, downloading }) => {
 //  MAIN PAGE
 // ═══════════════════════════════════════
 export default function ResumeBuilderPage() {
-    const [mode, setMode] = useState(null) // null | 'manual' | 'upload' | 'chat'
+    const [searchParams] = useSearchParams()
+    const isEmbed = searchParams.get('embed') === 'true'
+    const initialMode = searchParams.get('mode') || null
+    const [mode, setMode] = useState(initialMode) // null | 'manual' | 'upload' | 'chat'
     const [user, setUser] = useState(null)
     const [walletCredits, setWalletCredits] = useState(0)
     const [isDownloading, setIsDownloading] = useState(false)
@@ -1084,10 +1216,19 @@ export default function ResumeBuilderPage() {
         summary: '',
         certifications: []
     })
+    const isInitialLoad = useRef(true)
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (u) => {
             setUser(u)
+            
+            // Load resume data
+            const savedData = await loadResumeData(u?.uid)
+            if (savedData) {
+                setResumeData(savedData)
+            }
+            isInitialLoad.current = false
+
             if (u) {
                 const w = await loadWallet(u.uid)
                 setWalletCredits(w.credits)
@@ -1132,6 +1273,17 @@ export default function ResumeBuilderPage() {
             window.removeEventListener('keydown', preventScreenshot)
         }
     }, [])
+
+    // Auto-save resume data
+    useEffect(() => {
+        if (isInitialLoad.current) return;
+        
+        const timer = setTimeout(() => {
+            saveResumeData(user?.uid, resumeData)
+        }, 1500)
+        
+        return () => clearTimeout(timer)
+    }, [resumeData, user])
 
     const handleModeSelect = (selectedMode) => {
         if (!user) {
@@ -1190,8 +1342,9 @@ export default function ResumeBuilderPage() {
     }
 
     return (
-        <div className="rb-page">
-            {/* Navbar */}
+        <div className={`rb-page ${isEmbed ? 'rb-embed-mode' : ''}`}>
+            {/* Navbar — hidden in embed mode */}
+            {!isEmbed && (
             <nav className="rb-nav">
                 <div className="rb-nav-inner">
                     <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
@@ -1225,6 +1378,7 @@ export default function ResumeBuilderPage() {
                     </div>
                 </div>
             </nav>
+            )}
 
             {/* Mode Selector */}
             {!mode && (
@@ -1267,31 +1421,33 @@ export default function ResumeBuilderPage() {
             {/* Active Modes */}
             {mode && (
                 <div className="rb-container">
-                    <div className="rb-main">
+                    <div className={`rb-main ${isEmbed ? 'rb-main-embed' : ''}`}>
                         {/* Left: Form / Chat / Upload */}
                         {mode === 'manual' && <ManualForm data={resumeData} setData={setResumeData} onDownload={handleDownloadPdf} downloading={isDownloading} />}
                         {mode === 'upload' && <UploadMode setData={setResumeData} setMode={setMode} />}
-                        {mode === 'chat' && <ChatMode setData={setResumeData} setMode={setMode} onDownload={handleDownloadPdf} downloading={isDownloading} />}
+                        {mode === 'chat' && <ChatMode data={resumeData} setData={setResumeData} setMode={setMode} onDownload={handleDownloadPdf} downloading={isDownloading} />}
 
-                        {/* Right: Live Preview */}
-                        <div className="rb-preview-panel">
+                        {/* Right: Live Preview — visually hidden in embed mode, but kept in DOM for printing */}
+                        <div className={`rb-preview-panel ${isEmbed ? 'rb-preview-print-only' : ''}`}>
                             <div className="rb-preview-wrapper">
-                                <div className="rb-preview-header">
-                                    <h2>Live Preview</h2>
-                                    <div className="rb-preview-actions">
-                                        {mode !== 'manual' && mode !== null && (
-                                            <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode('manual')}>
-                                                Edit ✏️
+                                {!isEmbed && (
+                                    <div className="rb-preview-header">
+                                        <h2>Live Preview</h2>
+                                        <div className="rb-preview-actions">
+                                            {mode !== 'manual' && mode !== null && (
+                                                <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode('manual')}>
+                                                    Edit ✏️
+                                                </button>
+                                            )}
+                                            <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode(null)}>
+                                                ← Modes
                                             </button>
-                                        )}
-                                        <button className="rb-btn rb-btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => setMode(null)}>
-                                            ← Modes
-                                        </button>
-                                        <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={handleDownloadPdf} disabled={isDownloading}>
-                                            {isDownloading ? '⏳ Optimizing...' : '📥 PDF (-20c)'}
-                                        </button>
+                                            <button className="rb-btn rb-btn-accent" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={handleDownloadPdf} disabled={isDownloading}>
+                                                {isDownloading ? '⏳ Optimizing...' : '📥 PDF (-20c)'}
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <ResumePreview data={resumeData} />
                             </div>

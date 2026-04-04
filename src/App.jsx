@@ -233,6 +233,8 @@ const Chatbot = ({ user, onLoginRequired }) => {
     const [input, setInput] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [showInternModal, setShowInternModal] = useState(false)
+    const [showResumeModal, setShowResumeModal] = useState(false)
+    const [resumeModalMode, setResumeModalMode] = useState('chat')
     const chatInputRef = useRef(null)
     const chatScrollRef = useRef(null)
 
@@ -278,6 +280,14 @@ const Chatbot = ({ user, onLoginRequired }) => {
             if (aiText.includes("[LAUNCH_INTERNBOT]")) {
                 setMessages(prev => [...prev, { role: 'ai', content: "I would be happy to help with that! Launching Internbot for you now...", time: timeStr }])
                 setTimeout(() => openInternBot(), 800)
+            } else if (aiText.includes("[LAUNCH_RESUME_BUILDER]")) {
+                setMessages(prev => [...prev, { role: 'ai', content: "📄 Great! Let me launch the AI Resume Builder for you. You can build your resume interactively!", time: timeStr }])
+                setResumeModalMode('chat')
+                setTimeout(() => setShowResumeModal(true), 800)
+            } else if (aiText.includes("[LAUNCH_RESUME_UPLOAD]")) {
+                setMessages(prev => [...prev, { role: 'ai', content: "📋 Sure! Let me open the Resume Optimizer. Paste your existing resume and I'll help improve it!", time: timeStr }])
+                setResumeModalMode('upload')
+                setTimeout(() => setShowResumeModal(true), 800)
             } else {
                 setMessages(prev => [...prev, { role: 'ai', content: aiText, time: timeStr }])
             }
@@ -358,6 +368,9 @@ const Chatbot = ({ user, onLoginRequired }) => {
                         <button onClick={openInternBot} className="text-[10px] font-mono text-[#A1A1A9] bg-[#111113] border border-[#1C1C22] px-2.5 py-1 rounded-lg hover:text-[#EDEDEF] hover:border-[#27272F] transition-colors shrink-0 flex items-center gap-1">
                             <span>🔍</span> InternBot
                         </button>
+                        <button onClick={() => setShowResumeModal(true)} className="text-[10px] font-mono text-[#A1A1A9] bg-[#111113] border border-[#1C1C22] px-2.5 py-1 rounded-lg hover:text-[#EDEDEF] hover:border-[#27272F] transition-colors shrink-0 flex items-center gap-1">
+                            <span>📄</span> Resume Builder
+                        </button>
                     </div>
 
                     {/* Premium pill input */}
@@ -395,6 +408,23 @@ const Chatbot = ({ user, onLoginRequired }) => {
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                         <iframe src={internBotUrl} title="InternBot" className="w-full flex-1 border-0" />
+                    </div>
+                </div>
+            )}
+
+            {showResumeModal && (
+                <div className="fixed inset-0 bg-[#000000]/60 z-[100] flex items-center justify-center p-2 sm:p-4">
+                    <div className="bg-[#111113] border border-[#1C1C22] rounded-lg w-full max-w-lg h-[85vh] sm:h-[80vh] relative overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1C1C22] bg-[#0D0D0F] shrink-0">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-[#EDEDEF] font-mono">📄 Resume Builder</span>
+                                <span className="text-[10px] font-mono text-[#3B82F6] bg-[#3B82F6]/10 border border-[#3B82F6]/20 px-2 py-0.5 rounded">{resumeModalMode === 'upload' ? 'PASTE & OPTIMIZE' : 'AI CHAT'}</span>
+                            </div>
+                            <button className="w-8 h-8 rounded-md flex items-center justify-center text-[#63636E] hover:text-[#EDEDEF] hover:bg-[#1A1A1F] transition-colors" onClick={() => setShowResumeModal(false)}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <iframe src={`/resume-builder?mode=${resumeModalMode}&embed=true`} title="Resume Builder" className="w-full flex-1 border-0" style={{ minHeight: 0 }} />
                     </div>
                 </div>
             )}
@@ -578,9 +608,13 @@ function App() {
         setTimeout(() => setReqSubmitted(false), 3000)
     }
 
-    const filteredTools = filter === 'All' ? tools : tools.filter(t =>
+    const filteredTools = (filter === 'All' ? tools : tools.filter(t =>
         filter === 'Live' ? t.status === 'LIVE' : t.status === 'COMING SOON'
-    )
+    )).sort((a, b) => {
+        if (a.status === 'LIVE' && b.status !== 'LIVE') return -1;
+        if (a.status !== 'LIVE' && b.status === 'LIVE') return 1;
+        return 0;
+    });
 
     return (
         <div className="bg-[#09090B] text-[#A1A1A9] min-h-screen font-sans">

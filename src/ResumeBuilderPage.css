@@ -1217,3 +1217,77 @@
         text-align: center;
     }
 }
+
+/* ── Embed Mode (iframe) ── */
+.rb-embed-mode {
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.rb-embed-mode .rb-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.rb-embed-mode .rb-main-embed {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+    height: 100%;
+    flex: 1;
+}
+
+.rb-embed-mode .rb-main-embed .rb-form-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    border-radius: 0;
+    height: 100%;
+}
+
+.rb-embed-mode .rb-main-embed .rb-chat-area {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.rb-embed-mode .rb-main-embed .rb-form-header {
+    border-radius: 0;
+    flex-shrink: 0;
+}
+
+.rb-embed-mode .rb-main-embed .rb-chat-input {
+    flex-shrink: 0;
+}
+
+/* Hidden on screen, visible only during print (for embed/iframe mode) */
+.rb-preview-print-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+@media print {
+    .rb-preview-print-only {
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        clip: auto !important;
+        white-space: normal !important;
+        display: block !important;
+    }
+}

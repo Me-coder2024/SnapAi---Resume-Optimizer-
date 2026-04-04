@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { auth } from './firebase'
+import { auth } from '../../services/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
-import { supabase as _sb } from './supabase'
-import { trackBotInteraction, trackVisit, trackTrainingData } from './tracking'
+import { supabase as _sb } from '../../services/supabase'
+import { trackBotInteraction, trackVisit, trackTrainingData } from '../../services/tracking'
 
 /* ═══════════════════════════════════════
    SKILL DATABASE (same as chatbot InternBot)

@@ -16,13 +16,13 @@ import {
     calculateATSScore,
     saveResumeData,
     loadResumeData
-} from './resumeApi'
-import { analyzeProfile, scrapeLinkedIn, compareProfiles, improveText } from './profileOptimizer'
-import { auth } from './firebase'
+} from '../../services/resumeApi'
+import { analyzeProfile, scrapeLinkedIn, compareProfiles, improveText } from '../../services/profileOptimizer'
+import { auth } from '../../services/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
-import AuthModal from './components/ui/AuthModal'
-import ProfileDropdown from './components/ui/ProfileDropdown'
-import { loadWallet, deductCredits } from './App'
+import AuthModal from '../../components/ui/AuthModal'
+import ProfileDropdown from '../../components/ui/ProfileDropdown'
+import { loadWallet, deductCredits } from '../../services/wallet'
 import './ResumeBuilderPage.css'
 
 // ═══════════════════════════════════════

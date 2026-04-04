@@ -1,16 +1,6 @@
-import React, { useEffect, useRef, ReactNode } from 'react';
+import React, { useEffect, useRef } from 'react';
 
-interface GlowCardProps {
-  children: ReactNode;
-  className?: string;
-  glowColor?: 'blue' | 'purple' | 'green' | 'red' | 'orange' | 'white';
-  size?: 'sm' | 'md' | 'lg';
-  width?: string | number;
-  height?: string | number;
-  customSize?: boolean; // When true, ignores size prop and uses width/height or className
-}
-
-const glowColorMap: Record<string, { base: number; spread: number; saturation?: number; lightness?: number }> = {
+const glowColorMap = {
   blue: { base: 220, spread: 200 },
   purple: { base: 280, spread: 300 },
   green: { base: 120, spread: 200 },
@@ -25,7 +15,7 @@ const sizeMap = {
   lg: 'w-80 h-96'
 };
 
-const GlowCard: React.FC<GlowCardProps> = ({ 
+const GlowCard = ({ 
   children, 
   className = '', 
   glowColor = 'blue',
@@ -34,11 +24,11 @@ const GlowCard: React.FC<GlowCardProps> = ({
   height,
   customSize = false
 }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef(null);
+  const innerRef = useRef(null);
 
   useEffect(() => {
-    const syncPointer = (e: PointerEvent) => {
+    const syncPointer = (e) => {
       const { clientX: x, clientY: y } = e;
       
       if (cardRef.current) {
@@ -90,18 +80,18 @@ const GlowCard: React.FC<GlowCardProps> = ({
       backgroundPosition: '50% 50%',
       backgroundAttachment: 'fixed',
       border: 'var(--border-size) solid var(--backup-border)',
-      position: 'relative' as const,
+      position: 'relative',
     };
 
     // Add width and height if provided
     if (width !== undefined) {
-      (baseStyles as any).width = typeof width === 'number' ? `${width}px` : width;
+      baseStyles.width = typeof width === 'number' ? `${width}px` : width;
     }
     if (height !== undefined) {
-      (baseStyles as any).height = typeof height === 'number' ? `${height}px` : height;
+      baseStyles.height = typeof height === 'number' ? `${height}px` : height;
     }
 
-    return baseStyles as React.CSSProperties;
+    return baseStyles;
   };
 
   const beforeAfterStyles = `

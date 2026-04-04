@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { supabase } from './supabase'
+import { supabase } from '../../services/supabase'
 import './OrganizationPage.css'
 
 // Currently integrated tools on the website

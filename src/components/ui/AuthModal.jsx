@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { auth, googleProvider } from '../../firebase';
+import { auth, googleProvider } from '../../services/firebase';
 import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 const AuthModal = ({ isOpen, onClose }) => {

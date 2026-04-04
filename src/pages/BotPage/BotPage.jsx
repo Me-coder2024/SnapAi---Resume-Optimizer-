@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { callGemini } from './geminiApi'
-import { scrapeLinkedIn, analyzeProfile } from './profileOptimizer'
-import { auth } from './firebase'
+import { callGemini } from '../../services/geminiApi'
+import { scrapeLinkedIn, analyzeProfile } from '../../services/profileOptimizer'
+import { auth } from '../../services/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
-import { supabase as _sb } from './supabase'
-import ProfileDropdown from './components/ui/ProfileDropdown'
-import AuthModal from './components/ui/AuthModal'
-import AiChatInput, { ChatMessages } from './components/ui/AiChatInput'
+import { supabase as _sb } from '../../services/supabase'
+import ProfileDropdown from '../../components/ui/ProfileDropdown'
+import AuthModal from '../../components/ui/AuthModal'
+import AiChatInput, { ChatMessages } from '../../components/ui/AiChatInput'
 
 const BotPage = () => {
     const navigate = useNavigate()

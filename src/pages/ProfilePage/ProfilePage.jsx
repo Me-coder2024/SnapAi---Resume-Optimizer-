@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase as _sb } from './supabase'
-import { auth } from './firebase'
+import { supabase as _sb } from '../../services/supabase'
+import { auth } from '../../services/firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 // ═══════════════════════════════════════
 //  WALLET HELPERS (Secure — all writes via Edge Functions)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from './supabase';
+import { supabase } from '../../services/supabase';
 
 const TrackWebPage = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);

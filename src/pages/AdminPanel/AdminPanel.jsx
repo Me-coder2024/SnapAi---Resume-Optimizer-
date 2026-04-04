@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from './supabase'
+import { supabase } from '../../services/supabase'
 import './AdminPanel.css'
 
 // Auth credentials (from environment — never hardcode in source)

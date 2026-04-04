@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Lock, Search, Settings, Sparkles } from "lucide-react";
-import { GlowingEffect } from "./glowing-effect";
+import { GlowingEffect } from "./GlowingEffect";
 import { cn } from "../../lib/utils";
 
 export function GlowingEffectDemo() {
@@ -41,14 +41,7 @@ export function GlowingEffectDemo() {
   );
 }
 
-interface GridItemProps {
-  area: string;
-  icon: React.ReactNode;
-  title: string;
-  description: React.ReactNode;
-}
-
-const GridItem = ({ area, icon, title, description }: GridItemProps) => {
+const GridItem = ({ area, icon, title, description }) => {
   return (
     <li className={cn("min-h-[14rem] list-none", area)}>
       <div className="relative h-full rounded-[1.25rem] border border-[#1C1C22] p-2 md:rounded-[1.5rem] md:p-3 bg-[#09090B]">

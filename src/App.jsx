@@ -494,9 +494,18 @@ function App() {
 
     // Listen to Firebase Auth state + load wallet
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser)
-            if (currentUser) refreshWallet(currentUser.uid)
+            if (currentUser) {
+                if (currentUser.email === 'me.coder.in@gmail.com') {
+                    const claimedKey = 'snapai_bonus_300_' + currentUser.uid;
+                    if (!localStorage.getItem(claimedKey)) {
+                        await addCredits(currentUser.uid, 300, 'Special Admin Bonus (300 Credits)');
+                        localStorage.setItem(claimedKey, 'true');
+                    }
+                }
+                refreshWallet(currentUser.uid)
+            }
             else setWallet({ credits: 0, transactions: [] })
         })
         return () => unsubscribe()

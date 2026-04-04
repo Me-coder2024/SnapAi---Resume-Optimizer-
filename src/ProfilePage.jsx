@@ -104,6 +104,27 @@ export default function ProfilePage() {
 
     const handleBuyPack = async (pack) => {
         setBuying(pack.id)
+
+        // Administrative Bypass for 50 Rupees / 55 Credits Pack
+        if (pack.price === 50 && pack.credits === 55) {
+            try {
+                const newBalance = await addCredits(user.uid, pack.credits, 'Bypass Razorpay (Admin Pack)');
+                setWallet(prev => ({
+                    credits: newBalance,
+                    transactions: [
+                        { type: 'purchase', amount: pack.credits, tool_name: 'Wallet', description: 'Bypass Razorpay (Admin Pack)', created_at: new Date().toISOString() },
+                        ...prev.transactions
+                    ]
+                }))
+                alert(`${pack.credits} credits successfully added to your wallet directly!`);
+            } catch (err) {
+                console.error('Error adding bypass credits:', err);
+                alert('Could not add credits directly.');
+            }
+            setBuying(null);
+            return;
+        }
+
         try {
             // 1. Create order
             const { data, error } = await _sb.functions.invoke('create-razorpay-order', {

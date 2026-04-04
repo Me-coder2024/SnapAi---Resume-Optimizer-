@@ -1040,13 +1040,17 @@ const OptimizerPanel = ({ resumeText, resumeData, setData, setMode, onClose }) =
                     const section = (item.section || '').toLowerCase()
                     if (section.includes('skill')) {
                         updated.skills = [...(updated.skills || []), item.suggested_text]
-                    } else if (section.includes('experience')) {
-                        // Add as a bullet to the first experience entry
-                        if (updated.experience?.length) {
-                            updated.experience = updated.experience.map((exp, idx) =>
-                                idx === 0 ? { ...exp, bullets: [...(exp.bullets || []), item.suggested_text] } : exp
-                            )
-                        }
+                    } else if (section.includes('experience') || section.includes('project')) {
+                        // Create a NEW experience entry instead of dumping it into the first one's bullets
+                        const newExp = {
+                            company: item.item || 'LinkedIn Entry',
+                            title: '',
+                            date: '',
+                            location: '',
+                            description: '',
+                            bullets: item.suggested_text ? item.suggested_text.split('\n').map(b => b.trim().replace(/^- /, '')).filter(Boolean) : []
+                        };
+                        updated.experience = [...(updated.experience || []), newExp]
                     }
                 })
             }

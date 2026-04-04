@@ -18,6 +18,7 @@ const ANALYSIS_PROMPT = `You are a world-class career strategist who has reviewe
 CRITICAL RULES:
 - DO NOT force changes on everything. If a bullet point or section is already decent, LEAVE IT ALONE.
 - ONLY flag things that are genuinely weak, non-ATS friendly, or missing critical keywords that directly affect ATS parsing and scoring.
+- CRISPY & CONCISE: Ensure all bullet point rewrites and suggestions are short, punchy statements (max 1-2 lines). Avoid long, verbose, or flowery descriptions.
 - If something is already good, acknowledge it and move on — don't suggest improvements for already-strong sections.
 - NEVER USE PLACEHOLDERS like 'X', 'Y', 'Z', '[Number]', or '%'. When rewriting bullet points to be quantified, you MUST use realistic estimated numbers (e.g., 'saved $10,000', 'increased by 25%', 'led team of 5') rather than generic variables.
 - Be SPECIFIC: reference actual text, bullet points, or sections from the profile. Never say generic things like "add more metrics" without explaining exactly what to change.

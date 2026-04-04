@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-async function callGeminiResume(prompt, modelName = 'gemini-2.0-flash', temperature = 0.4, maxTokens = 1024) {
+async function callGeminiResume(prompt, modelName = 'gemini-2.5-flash', temperature = 0.4, maxTokens = 1024) {
     const model = genAI.getGenerativeModel({
         model: modelName, 
     });

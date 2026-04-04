@@ -18,3 +18,13 @@ Our integrated intelligent chatbot provides an interactive premium experience:
 3. The chatbot can guide you through using the marketplace, provide real-time optimizations, and answer any queries you might have.
 
 Enjoy exploring the endless possibilities with SnapAi!
+
+## Technical Stack
+This project is built using modern web development technologies to ensure high performance, security, and exceptional user experience:
+- **Frontend Framework:** React 19 and Vite
+- **Styling:** Tailwind CSS, Tailwind Merge, and CLSX for responsive and dynamic styling
+- **Animations & 3D:** Motion, Three.js, React Three Fiber, React Three Drei for stunning 3D elements and smooth transitions
+- **Backend & Authentication:** Supabase and Firebase for robust user management, real-time database, and secure backend operations
+- **AI Integration:** Google Generative AI (@google/generative-ai) to power our sophisticated chatbots and AI tools
+- **Routing:** React Router v7 for seamless navigation
+- **Icons:** Lucide React for modern, scalable iconography

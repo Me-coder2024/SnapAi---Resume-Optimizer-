@@ -905,6 +905,101 @@ const UploadMode = ({ setData, setMode }) => {
     const [rawText, setRawText] = useState('')
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState(null)
+    const [activeTab, setActiveTab] = useState('upload') // 'upload' | 'paste'
+    const [dragActive, setDragActive] = useState(false)
+    const [fileName, setFileName] = useState('')
+    const fileInputRef = useRef(null)
+
+    const extractTextFromFile = async (file) => {
+        const ext = file.name.split('.').pop().toLowerCase()
+
+        // Plain text files — read directly
+        if (ext === 'txt') {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = (e) => resolve(e.target.result)
+                reader.onerror = () => reject(new Error('Failed to read file'))
+                reader.readAsText(file)
+            })
+        }
+
+        // PDF and DOCX — send to Gemini AI for text extraction
+        if (ext === 'pdf' || ext === 'docx' || ext === 'doc') {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = (e) => {
+                    const base64String = e.target.result.split(',')[1]
+                    resolve(base64String)
+                }
+                reader.onerror = () => reject(new Error('Failed to read file'))
+                reader.readAsDataURL(file)
+            })
+
+            const mimeType = ext === 'pdf' ? 'application/pdf'
+                : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : 'application/msword'
+
+            // Use Gemini to extract text from the file
+            const { GoogleGenerativeAI } = await import('@google/generative-ai')
+            const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+            const result = await model.generateContent([
+                {
+                    inlineData: {
+                        mimeType,
+                        data: base64
+                    }
+                },
+                { text: 'Extract ALL the text content from this resume document. Return ONLY the raw text content exactly as it appears, with no commentary, no formatting changes, and no summarization. Preserve line breaks and structure.' }
+            ])
+
+            return result.response.text().trim()
+        }
+
+        throw new Error(`Unsupported file type: .${ext}`)
+    }
+
+    const handleFileSelect = async (file) => {
+        if (!file) return
+
+        const ext = file.name.split('.').pop().toLowerCase()
+        const allowed = ['pdf', 'docx', 'doc', 'txt']
+        if (!allowed.includes(ext)) {
+            setStatus({ type: 'error', text: `Unsupported file type (.${ext}). Please upload PDF, DOCX, or TXT.` })
+            return
+        }
+
+        // 10MB limit
+        if (file.size > 10 * 1024 * 1024) {
+            setStatus({ type: 'error', text: 'File too large. Maximum size is 10MB.' })
+            return
+        }
+
+        setFileName(file.name)
+        setLoading(true)
+        setStatus({ type: 'info', text: `📎 Reading ${file.name}...` })
+
+        try {
+            const text = await extractTextFromFile(file)
+            if (!text || text.trim().length < 20) {
+                throw new Error('Could not extract text from this file. Try pasting the text manually.')
+            }
+            setRawText(text)
+            setStatus({ type: 'success', text: `✅ Extracted text from ${file.name}. Click "Parse with AI" to continue.` })
+        } catch (err) {
+            console.error('File extraction error:', err)
+            setStatus({ type: 'error', text: err.message || 'Failed to read file. Try pasting the text manually.' })
+        }
+        setLoading(false)
+    }
+
+    const handleDrop = (e) => {
+        e.preventDefault()
+        setDragActive(false)
+        const file = e.dataTransfer?.files?.[0]
+        if (file) handleFileSelect(file)
+    }
 
     const handleParse = async () => {
         if (!rawText.trim()) return
@@ -971,15 +1066,96 @@ const UploadMode = ({ setData, setMode }) => {
                 <h2>📄 Upload / Paste Resume</h2>
             </div>
             <div className="rb-upload-area">
-                <p style={{ fontSize: '0.8125rem', color: '#A1A1A9', marginBottom: '1rem' }}>
-                    Paste the text of your existing resume below. Our AI will extract and structure the data automatically.
-                </p>
-                <textarea
-                    className="rb-paste-box"
-                    placeholder="Paste your resume text here...&#10;&#10;Example:&#10;John Doe&#10;john@email.com | (555) 123-4567&#10;Software Engineer at Google&#10;..."
-                    value={rawText}
-                    onChange={e => setRawText(e.target.value)}
-                />
+                {/* Tab Toggle */}
+                <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1rem', background: '#111113', borderRadius: '0.5rem', padding: '0.25rem', border: '1px solid #1C1C22' }}>
+                    <button
+                        onClick={() => setActiveTab('upload')}
+                        style={{
+                            flex: 1, padding: '0.5rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer',
+                            fontSize: '0.75rem', fontWeight: 600, transition: 'all 0.2s',
+                            background: activeTab === 'upload' ? '#1A1A1F' : 'transparent',
+                            color: activeTab === 'upload' ? '#EDEDEF' : '#63636E'
+                        }}
+                    >
+                        📎 Upload File
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('paste')}
+                        style={{
+                            flex: 1, padding: '0.5rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer',
+                            fontSize: '0.75rem', fontWeight: 600, transition: 'all 0.2s',
+                            background: activeTab === 'paste' ? '#1A1A1F' : 'transparent',
+                            color: activeTab === 'paste' ? '#EDEDEF' : '#63636E'
+                        }}
+                    >
+                        📋 Paste Text
+                    </button>
+                </div>
+
+                {activeTab === 'upload' ? (
+                    <>
+                        {/* Drag & Drop Zone */}
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
+                            onDragLeave={() => setDragActive(false)}
+                            onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                                border: `2px dashed ${dragActive ? '#3B82F6' : '#27272F'}`,
+                                borderRadius: '0.75rem',
+                                padding: '2rem 1.5rem',
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                background: dragActive ? 'rgba(59, 130, 246, 0.05)' : '#0D0D0F',
+                                marginBottom: '1rem'
+                            }}
+                        >
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf,.docx,.doc,.txt"
+                                style={{ display: 'none' }}
+                                onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                            />
+                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                                {fileName ? '✅' : '📄'}
+                            </div>
+                            <p style={{ fontSize: '0.875rem', color: '#EDEDEF', fontWeight: 600, marginBottom: '0.25rem' }}>
+                                {fileName || 'Drop your resume here or click to browse'}
+                            </p>
+                            <p style={{ fontSize: '0.75rem', color: '#63636E' }}>
+                                Supports PDF, DOCX, TXT — Max 10MB
+                            </p>
+                        </div>
+
+                        {/* Show extracted text preview */}
+                        {rawText && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <p style={{ fontSize: '0.75rem', color: '#A1A1A9', marginBottom: '0.5rem' }}>Extracted text preview:</p>
+                                <textarea
+                                    className="rb-paste-box"
+                                    value={rawText}
+                                    onChange={e => setRawText(e.target.value)}
+                                    style={{ maxHeight: '200px' }}
+                                />
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <p style={{ fontSize: '0.8125rem', color: '#A1A1A9', marginBottom: '1rem' }}>
+                            Paste the text of your existing resume below. Our AI will extract and structure the data automatically.
+                        </p>
+                        <textarea
+                            className="rb-paste-box"
+                            placeholder={"Paste your resume text here...\n\nExample:\nJohn Doe\njohn@email.com | (555) 123-4567\nSoftware Engineer at Google\n..."}
+                            value={rawText}
+                            onChange={e => setRawText(e.target.value)}
+                        />
+                    </>
+                )}
+
                 <div className="rb-btn-group">
                     <button className="rb-btn rb-btn-accent" onClick={handleParse} disabled={loading || !rawText.trim()}>
                         {loading ? <><span className="rb-spinner"></span> Analyzing...</> : '✨ Parse with AI'}

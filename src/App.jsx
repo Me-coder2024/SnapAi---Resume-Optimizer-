@@ -13,53 +13,86 @@ import ProfileDropdown from './components/ui/ProfileDropdown'
 import { trackVisit, trackBotInteraction, trackPing } from './tracking'
 
 // ═══════════════════════════════════════
-//  WALLET HELPERS (Supabase-backed)
+//  WALLET HELPERS (Secure — all writes via Edge Functions)
 // ═══════════════════════════════════════
 const DEFAULT_FREE_CREDITS = 10
+const SUPABASE_FUNC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+
+// Helper to call wallet-operations edge function
+async function callWalletEdge(action, uid, extra = {}) {
+    const response = await fetch(`${SUPABASE_FUNC_URL}/wallet-operations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({ action, uid, ...extra })
+    })
+    const result = await response.json()
+    if (!response.ok) {
+        throw new Error(result.error || `Edge function failed (${response.status})`)
+    }
+    return result
+}
 
 export async function loadWallet(uid) {
     if (!uid) return { credits: 0, transactions: [] }
     try {
-        // Load or create wallet
-        let { data: wallet } = await _sb.from('user_wallets').select('*').eq('uid', uid).single()
-        if (!wallet) {
-            // First-time user — give free credits
-            const { data: newWallet } = await _sb.from('user_wallets').insert([{ uid, credits: DEFAULT_FREE_CREDITS }]).select().single()
-            wallet = newWallet || { uid, credits: DEFAULT_FREE_CREDITS }
-            // Log the welcome bonus
-            await _sb.from('wallet_transactions').insert([{
-                uid, type: 'purchase', amount: DEFAULT_FREE_CREDITS, tool_name: 'System', description: 'Welcome bonus credits'
-            }])
+        // Try reading directly first (fast path — anon SELECT is allowed by RLS)
+        let { data: wallet, error: walletErr } = await _sb.from('user_wallets').select('*').eq('uid', uid).maybeSingle()
+        
+        if (walletErr) {
+            console.warn('Direct wallet read failed, using edge function:', walletErr.message)
         }
-        // Load transactions
-        const { data: txns } = await _sb.from('wallet_transactions').select('*').eq('uid', uid).order('created_at', { ascending: false }).limit(50)
+
+        if (!wallet) {
+            // New user — create wallet via edge function (bypasses RLS for INSERT)
+            console.log('No wallet found, creating via edge function...')
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        }
+
+        // Wallet exists — read transactions directly (anon SELECT allowed)
+        const { data: txns, error: txnErr } = await _sb.from('wallet_transactions').select('*').eq('uid', uid).order('created_at', { ascending: false }).limit(50)
+        
+        if (txnErr) {
+            console.warn('Transaction read failed:', txnErr.message)
+            // Fallback: get everything via edge function
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        }
+
         return { credits: wallet.credits || 0, transactions: txns || [] }
     } catch (err) {
-        console.warn('Wallet load error (using localStorage fallback):', err)
-        // Fallback to localStorage
+        console.warn('Wallet load error:', err)
+        // Last resort: try edge function
         try {
-            const raw = localStorage.getItem(`snapai_wallet_${uid}`)
-            if (raw) return JSON.parse(raw)
-        } catch (e) { /* ignore */ }
-        const fallback = { credits: DEFAULT_FREE_CREDITS, transactions: [{ type: 'purchase', amount: DEFAULT_FREE_CREDITS, tool_name: 'System', description: 'Welcome bonus credits', created_at: new Date().toISOString() }] }
-        localStorage.setItem(`snapai_wallet_${uid}`, JSON.stringify(fallback))
-        return fallback
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        } catch (edgeErr) {
+            console.error('Edge function also failed:', edgeErr)
+            // Final fallback to localStorage
+            try {
+                const raw = localStorage.getItem(`snapai_wallet_${uid}`)
+                if (raw) return JSON.parse(raw)
+            } catch (e) { /* ignore */ }
+            return { credits: DEFAULT_FREE_CREDITS, transactions: [] }
+        }
     }
 }
 
 export async function addCredits(uid, amount, packName) {
     if (!uid) return null
     try {
-        // Get current balance
-        const { data: wallet } = await _sb.from('user_wallets').select('credits').eq('uid', uid).single()
-        const newBalance = (wallet?.credits || 0) + amount
-        await _sb.from('user_wallets').upsert({ uid, credits: newBalance, updated_at: new Date().toISOString() })
-        await _sb.from('wallet_transactions').insert([{
-            uid, type: 'purchase', amount, tool_name: 'Wallet', description: packName
-        }])
-        return newBalance
+        // All credit additions go through edge function (secure, bypasses RLS)
+        const result = await callWalletEdge('add', uid, { amount, packName })
+        if (result.success) {
+            return result.credits
+        }
+        throw new Error(result.error || 'Failed to add credits')
     } catch (err) {
-        console.warn('addCredits error (localStorage fallback):', err)
+        console.error('addCredits error:', err)
+        // Fallback to localStorage only for UI display — real credits tracked server-side
         try {
             const raw = localStorage.getItem(`snapai_wallet_${uid}`)
             const w = raw ? JSON.parse(raw) : { credits: 0, transactions: [] }
@@ -74,7 +107,7 @@ export async function addCredits(uid, amount, packName) {
 export async function deductCredits(uid, amount, toolName) {
     if (!uid) return null
     try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deduct-credits`, {
+        const response = await fetch(`${SUPABASE_FUNC_URL}/deduct-credits`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -92,7 +125,8 @@ export async function deductCredits(uid, amount, toolName) {
         
         return result.credits;
     } catch (err) {
-        console.warn('deductCredits error (localStorage fallback):', err)
+        console.error('deductCredits error:', err)
+        // Fallback to localStorage
         try {
             const raw = localStorage.getItem(`snapai_wallet_${uid}`)
             const w = raw ? JSON.parse(raw) : { credits: 0, transactions: [] }

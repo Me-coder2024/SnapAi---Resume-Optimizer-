@@ -4,47 +4,82 @@ import { supabase as _sb } from './supabase'
 import { auth } from './firebase'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 // ═══════════════════════════════════════
-//  WALLET HELPERS (Supabase-backed)
+//  WALLET HELPERS (Secure — all writes via Edge Functions)
 // ═══════════════════════════════════════
 const DEFAULT_FREE_CREDITS = 10
+const SUPABASE_FUNC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+
+// Helper to call wallet-operations edge function
+async function callWalletEdge(action, uid, extra = {}) {
+    const response = await fetch(`${SUPABASE_FUNC_URL}/wallet-operations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({ action, uid, ...extra })
+    })
+    const result = await response.json()
+    if (!response.ok) {
+        throw new Error(result.error || `Edge function failed (${response.status})`)
+    }
+    return result
+}
 
 async function loadWallet(uid) {
     if (!uid) return { credits: 0, transactions: [] }
     try {
-        let { data: wallet } = await _sb.from('user_wallets').select('*').eq('uid', uid).single()
-        if (!wallet) {
-            const { data: newWallet } = await _sb.from('user_wallets').insert([{ uid, credits: DEFAULT_FREE_CREDITS }]).select().single()
-            wallet = newWallet || { uid, credits: DEFAULT_FREE_CREDITS }
-            await _sb.from('wallet_transactions').insert([{
-                uid, type: 'purchase', amount: DEFAULT_FREE_CREDITS, tool_name: 'System', description: 'Welcome bonus credits'
-            }])
+        // Try reading directly first (fast path — anon SELECT is allowed by RLS)
+        let { data: wallet, error: walletErr } = await _sb.from('user_wallets').select('*').eq('uid', uid).maybeSingle()
+        
+        if (walletErr) {
+            console.warn('Direct wallet read failed, using edge function:', walletErr.message)
         }
-        const { data: txns } = await _sb.from('wallet_transactions').select('*').eq('uid', uid).order('created_at', { ascending: false }).limit(50)
+
+        if (!wallet) {
+            // New user — create wallet via edge function (bypasses RLS for INSERT)
+            console.log('No wallet found, creating via edge function...')
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        }
+
+        // Wallet exists — read transactions directly (anon SELECT allowed)
+        const { data: txns, error: txnErr } = await _sb.from('wallet_transactions').select('*').eq('uid', uid).order('created_at', { ascending: false }).limit(50)
+        
+        if (txnErr) {
+            console.warn('Transaction read failed:', txnErr.message)
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        }
+
         return { credits: wallet.credits || 0, transactions: txns || [] }
     } catch (err) {
-        console.warn('Wallet load error (localStorage fallback):', err)
+        console.warn('Wallet load error:', err)
         try {
-            const raw = localStorage.getItem(`snapai_wallet_${uid}`)
-            if (raw) return JSON.parse(raw)
-        } catch (e) { /* ignore */ }
-        const fallback = { credits: DEFAULT_FREE_CREDITS, transactions: [{ type: 'purchase', amount: DEFAULT_FREE_CREDITS, tool_name: 'System', description: 'Welcome bonus credits', created_at: new Date().toISOString() }] }
-        localStorage.setItem(`snapai_wallet_${uid}`, JSON.stringify(fallback))
-        return fallback
+            const result = await callWalletEdge('load', uid)
+            return { credits: result.credits || 0, transactions: result.transactions || [] }
+        } catch (edgeErr) {
+            console.error('Edge function also failed:', edgeErr)
+            try {
+                const raw = localStorage.getItem(`snapai_wallet_${uid}`)
+                if (raw) return JSON.parse(raw)
+            } catch (e) { /* ignore */ }
+            return { credits: DEFAULT_FREE_CREDITS, transactions: [] }
+        }
     }
 }
 
 async function addCredits(uid, amount, packName) {
     if (!uid) return null
     try {
-        const { data: wallet } = await _sb.from('user_wallets').select('credits').eq('uid', uid).single()
-        const newBalance = (wallet?.credits || 0) + amount
-        await _sb.from('user_wallets').upsert({ uid, credits: newBalance, updated_at: new Date().toISOString() })
-        await _sb.from('wallet_transactions').insert([{
-            uid, type: 'purchase', amount, tool_name: 'Wallet', description: packName
-        }])
-        return newBalance
+        // All credit additions go through edge function (secure, bypasses RLS)
+        const result = await callWalletEdge('add', uid, { amount, packName })
+        if (result.success) {
+            return result.credits
+        }
+        throw new Error(result.error || 'Failed to add credits')
     } catch (err) {
-        console.warn('addCredits error (localStorage fallback):', err)
+        console.error('addCredits error:', err)
         try {
             const raw = localStorage.getItem(`snapai_wallet_${uid}`)
             const w = raw ? JSON.parse(raw) : { credits: 0, transactions: [] }
@@ -105,25 +140,7 @@ export default function ProfilePage() {
     const handleBuyPack = async (pack) => {
         setBuying(pack.id)
 
-        // Administrative Bypass for 50 Rupees / 55 Credits Pack
-        if (pack.price === 50 && pack.credits === 55) {
-            try {
-                const newBalance = await addCredits(user.uid, pack.credits, 'Bypass Razorpay (Admin Pack)');
-                setWallet(prev => ({
-                    credits: newBalance,
-                    transactions: [
-                        { type: 'purchase', amount: pack.credits, tool_name: 'Wallet', description: 'Bypass Razorpay (Admin Pack)', created_at: new Date().toISOString() },
-                        ...prev.transactions
-                    ]
-                }))
-                alert(`${pack.credits} credits successfully added to your wallet directly!`);
-            } catch (err) {
-                console.error('Error adding bypass credits:', err);
-                alert('Could not add credits directly.');
-            }
-            setBuying(null);
-            return;
-        }
+        // The 55 Credits pack now flows into the regular Razorpay checkout process
 
         try {
             // 1. Create order
@@ -161,12 +178,12 @@ export default function ProfilePage() {
                         setBuying('processing'); 
                         console.log('Payment successful! Razorpay response:', response);
                         
-                        // Poll for credit update — the webhook runs async, so give it time
+                        // First, try polling for webhook-based credit addition (fastest path)
                         const currentCredits = wallet.credits;
                         let updated = false;
                         
-                        for (let attempt = 1; attempt <= 6; attempt++) {
-                            await new Promise(r => setTimeout(r, 2500)); // wait 2.5s between polls
+                        for (let attempt = 1; attempt <= 4; attempt++) {
+                            await new Promise(r => setTimeout(r, 2000));
                             const freshWallet = await loadWallet(user.uid);
                             console.log(`Poll attempt ${attempt}: balance = ${freshWallet.credits} (was ${currentCredits})`);
                             
@@ -177,11 +194,42 @@ export default function ProfilePage() {
                             }
                         }
                         
+                        // If webhook didn't process in time, use verify-payment fallback
                         if (!updated) {
-                            // Final attempt — force refresh one more time
+                            console.log('Webhook did not process in time. Calling verify-payment fallback...');
+                            try {
+                                const verifyRes = await fetch(`${SUPABASE_FUNC_URL}/verify-payment`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                                    },
+                                    body: JSON.stringify({
+                                        razorpay_order_id: response.razorpay_order_id,
+                                        razorpay_payment_id: response.razorpay_payment_id,
+                                        uid: user.uid,
+                                        credits: String(pack.credits),
+                                        label: pack.label
+                                    })
+                                });
+                                const verifyData = await verifyRes.json();
+                                console.log('verify-payment response:', verifyData);
+                                
+                                if (verifyRes.ok && verifyData.success) {
+                                    setWallet(prev => ({ ...prev, credits: verifyData.credits }));
+                                    await refreshWallet(user.uid);
+                                    updated = true;
+                                } else {
+                                    console.error('verify-payment failed:', verifyData.error);
+                                }
+                            } catch (verifyErr) {
+                                console.error('verify-payment call failed:', verifyErr);
+                            }
+                        }
+                        
+                        if (!updated) {
                             await refreshWallet(user.uid);
-                            console.warn('Credits may not have updated yet. If credits are missing, they will be added shortly.');
-                            alert('Payment successful! If credits don\'t appear immediately, please refresh the page in a minute. Your payment is safe.');
+                            alert('Payment successful! Credits will appear shortly. Please refresh the page if needed.');
                         }
                         
                         setBuying(null);

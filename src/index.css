@@ -185,3 +185,106 @@ button:active {
     background-size: 200% 100%;
     animation: shimmer 3s ease-in-out infinite;
 }
+
+/* ═══════════════════════════════════════
+   AI Message Markdown Styles
+   ═══════════════════════════════════════ */
+
+.ai-md-content {
+    line-height: 1.7;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.ai-md-content strong {
+    color: #EDEDEF;
+    font-weight: 600;
+}
+
+.ai-md-content em {
+    color: #A1A1A9;
+    font-style: italic;
+}
+
+.ai-md-content .ai-md-h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #EDEDEF;
+    margin: 16px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1C1C22;
+}
+
+.ai-md-content .ai-md-h2 {
+    font-size: 1.05rem;
+    font-weight: 650;
+    color: #EDEDEF;
+    margin: 14px 0 6px 0;
+}
+
+.ai-md-content .ai-md-h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #EDEDEF;
+    margin: 12px 0 6px 0;
+}
+
+.ai-md-content .ai-md-p {
+    margin: 4px 0;
+}
+
+.ai-md-content .ai-md-spacer {
+    height: 8px;
+}
+
+.ai-md-content .ai-md-list {
+    margin: 6px 0;
+    padding-left: 20px;
+    list-style: none;
+}
+
+.ai-md-content .ai-md-list li {
+    position: relative;
+    padding: 3px 0;
+    padding-left: 10px;
+}
+
+.ai-md-content .ai-md-list li::before {
+    content: '•';
+    position: absolute;
+    left: -4px;
+    color: #3B82F6;
+    font-weight: bold;
+}
+
+.ai-md-content .ai-md-inline-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    background: #1A1A1F;
+    border: 1px solid #27272F;
+    color: #EDEDEF;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.ai-md-content .ai-md-code-block {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: #0D0D0F;
+    border: 1px solid #1C1C22;
+    color: #A1A1A9;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.ai-md-content .ai-md-code-block code {
+    background: none;
+    border: none;
+    padding: 0;
+}

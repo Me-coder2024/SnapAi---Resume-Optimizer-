@@ -8,6 +8,101 @@ import { ArrowUp, Sparkles, Search, Lightbulb } from 'lucide-react'
    ═══════════════════════════════════════ */
 
 /**
+ * Lightweight markdown → HTML renderer for AI messages.
+ * Handles: headings, bold, italic, bullet lists, code, line breaks.
+ */
+function renderMarkdown(text) {
+    if (!text) return ''
+    
+    // Escape HTML entities first
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    
+    // Split into lines for block-level processing
+    const lines = html.split('\n')
+    const output = []
+    let inList = false
+    let inCodeBlock = false
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i]
+        
+        // Code blocks (```)
+        if (line.trim().startsWith('```')) {
+            if (inCodeBlock) {
+                output.push('</code></pre>')
+                inCodeBlock = false
+            } else {
+                if (inList) { output.push('</ul>'); inList = false }
+                inCodeBlock = true
+                output.push('<pre class="ai-md-code-block"><code>')
+            }
+            continue
+        }
+        if (inCodeBlock) {
+            output.push(line)
+            continue
+        }
+        
+        // Headings
+        if (line.trim().startsWith('### ')) {
+            if (inList) { output.push('</ul>'); inList = false }
+            output.push(`<h4 class="ai-md-h3">${applyInline(line.trim().slice(4))}</h4>`)
+            continue
+        }
+        if (line.trim().startsWith('## ')) {
+            if (inList) { output.push('</ul>'); inList = false }
+            output.push(`<h3 class="ai-md-h2">${applyInline(line.trim().slice(3))}</h3>`)
+            continue
+        }
+        if (line.trim().startsWith('# ')) {
+            if (inList) { output.push('</ul>'); inList = false }
+            output.push(`<h2 class="ai-md-h1">${applyInline(line.trim().slice(2))}</h2>`)
+            continue
+        }
+        
+        // Bullet list items (- or *)
+        if (/^\s*[-*]\s+/.test(line)) {
+            if (!inList) { output.push('<ul class="ai-md-list">'); inList = true }
+            const content = line.replace(/^\s*[-*]\s+/, '')
+            output.push(`<li>${applyInline(content)}</li>`)
+            continue
+        }
+        
+        // Close list if we're in one and this line isn't a bullet
+        if (inList && line.trim() !== '') {
+            output.push('</ul>')
+            inList = false
+        }
+        
+        // Empty line
+        if (line.trim() === '') {
+            if (inList) { output.push('</ul>'); inList = false }
+            output.push('<div class="ai-md-spacer"></div>')
+            continue
+        }
+        
+        // Regular paragraph
+        output.push(`<p class="ai-md-p">${applyInline(line)}</p>`)
+    }
+    
+    if (inList) output.push('</ul>')
+    if (inCodeBlock) output.push('</code></pre>')
+    
+    return output.join('')
+}
+
+/** Apply inline markdown: bold, italic, inline code */
+function applyInline(text) {
+    return text
+        .replace(/`([^`]+)`/g, '<code class="ai-md-inline-code">$1</code>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+}
+
+/**
  * ChatMessages — Renders the scrollable message list with animations
  */
 export const ChatMessages = ({ messages, isTyping, emptyState }) => {
@@ -41,14 +136,14 @@ export const ChatMessages = ({ messages, isTyping, emptyState }) => {
                                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                                 >
+                                    <div className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                     {/* Sender label */}
                                     <span className="text-[10px] text-[#3A3A44] mb-1.5 px-1 font-mono">
                                         {msg.role === 'user' ? 'You' : 'SnapAI'}{msg.time ? ` · ${msg.time}` : ''}
                                     </span>
 
-                                    <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    <div className={`flex gap-2.5 max-w-[85%] sm:max-w-[75%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end`}>
                                         {/* Avatar */}
                                         {msg.role === 'ai' && (
                                             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#3B82F6]/20 to-[#8B5CF6]/20 border border-[#3B82F6]/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -58,14 +153,24 @@ export const ChatMessages = ({ messages, isTyping, emptyState }) => {
 
                                         {/* Bubble */}
                                         <div
-                                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed transition-colors duration-300 ${
+                                            className={`rounded-2xl text-[14px] leading-relaxed transition-colors duration-300 ${
                                                 msg.role === 'user'
-                                                    ? 'rounded-br-sm bg-[#EDEDEF] text-[#09090B] shadow-sm'
-                                                    : 'rounded-bl-sm bg-[#111113] border border-[#1C1C22] text-[#EDEDEF]'
+                                                    ? 'rounded-br-sm bg-[#EDEDEF] text-[#09090B] shadow-sm px-4 py-2.5'
+                                                    : 'rounded-bl-sm bg-[#111113] border border-[#1C1C22] text-[#EDEDEF] px-4 py-3'
                                             }`}
+                                            style={
+                                                msg.role === 'user'
+                                                    ? { minWidth: '2.5rem', maxWidth: '100%', wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-line' }
+                                                    : { minWidth: 0, maxWidth: '100%', wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }
+                                            }
                                         >
-                                            {msg.content}
+                                        {msg.role === 'ai' ? (
+                                            <div className="ai-md-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                                        ) : (
+                                            msg.content
+                                        )}
                                         </div>
+                                    </div>
                                     </div>
                                 </motion.div>
                             ))}

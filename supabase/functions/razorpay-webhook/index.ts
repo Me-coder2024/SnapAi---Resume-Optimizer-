@@ -55,7 +55,7 @@ serve(async (req) => {
     console.log("Webhook event received:", payload.event);
 
     // Handle BOTH payment.captured AND payment.authorized
-    // Test mode sends payment.authorized, live mode with auto-capture sends payment.captured
+    // The idempotency check below prevents double-crediting
     if (payload.event === 'payment.captured' || payload.event === 'payment.authorized') {
       const paymentEntity = payload.payload?.payment?.entity;
       

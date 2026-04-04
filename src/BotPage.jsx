@@ -208,10 +208,11 @@ const BotPage = () => {
                 // Execute the optimization flow completely asynchronously so it doesn't block UI further
                 setTimeout(async () => {
                     try {
-                        const liText = await scrapeLinkedIn(payload.linkedin);
+                        const liData = await scrapeLinkedIn(payload.linkedin);
+                        const liText = typeof liData === 'object' ? liData.text : liData;
                         if (!liText || liText.length < 50) throw new Error("Could not extract meaningful data from the profile.");
                         
-                        // Pass empty string for resume, pass linkedin text, and target role 
+                        // Pass LinkedIn text as resume content and target role 
                         const result = await analyzeProfile(liText, payload.role);
                         
                         // Format the output

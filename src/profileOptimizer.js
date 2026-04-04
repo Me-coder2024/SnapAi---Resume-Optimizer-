@@ -16,10 +16,12 @@ const ANALYSIS_PROMPT = `You are a world-class career strategist who has reviewe
 {role_context}
 
 CRITICAL RULES:
-- ONLY flag things that are genuinely weak or missing. If something is already good, acknowledge it and move on — don't suggest improvements for already-strong sections.
-- Be SPECIFIC: reference actual text, bullet points, or sections from the profile. Never say generic things like "add more metrics" or "improve your education section" without explaining exactly what to change.
-- If the profile is strong for the target role, give it a high score. Don't nitpick for the sake of it.
-- Evaluate everything through the lens of the target job role.
+- DO NOT force changes on everything. If a bullet point or section is already decent, LEAVE IT ALONE.
+- ONLY flag things that are genuinely weak, non-ATS friendly, or missing critical keywords that directly affect ATS parsing and scoring.
+- If something is already good, acknowledge it and move on — don't suggest improvements for already-strong sections.
+- Be SPECIFIC: reference actual text, bullet points, or sections from the profile. Never say generic things like "add more metrics" without explaining exactly what to change.
+- If the profile is reasonably strong for the target role, give it a high score. Do not nitpick or manufacture weaknesses.
+- Evaluate everything through the strict lens of the target job role and ATS impact.
 
 Think like a hiring manager for this specific role. Before generating your response, reason through:
 
@@ -115,8 +117,8 @@ Return your analysis as JSON with EXACTLY this structure (no markdown, just raw 
 IMPORTANT:
 - You MUST populate 'original_text' AND 'suggested_replacement' for all suggestions.
 - Set needs_improvement to false for categories that are already strong (score >= 75).
-- Only include suggestions for things that are genuinely weak.
-- For bullet_point_transformers, find 1-3 extremely weak bullet points. If all are strong, leave the array EMPTY.
+- Only include suggestions for things that are genuinely weak or harmful to ATS parsing. DO NOT invent suggestions just to fill the array.
+- For bullet_point_transformers, find ONLY extremely weak, generic, or passive bullet points. IF ALL BULLET POINTS ARE DECENT, LEAVE THE ARRAY COMPLETELY EMPTY. Do not force rewrites on good content.
 - For rejection_predictors, only predict deal-breakers. If the profile is good, leave it EMPTY.
 
 Here is the resume content to analyze:
